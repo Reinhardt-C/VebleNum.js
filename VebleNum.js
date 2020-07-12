@@ -144,6 +144,7 @@ class VebleNum {
 		else o = other.clone();
 		if (o.cmp(0) == 0) return 1;
 		if (o.cmp(1) == 0) return this.clone();
+		if (this.cmp(0) == 0) return 0;
 		if (this.cmp(1) == 0) return 1;
 		let res;
 		if (typeof this.value == "number") {

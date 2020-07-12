@@ -1,4 +1,6 @@
 class VebleNum {
+	static LIMIT_MULTIPLIER = 400; // This can be changed, but be careful you don't want arrays with thousands of elements
+
 	constructor(input, nostandard = false) {
 		if (typeof input == "string") this.value = VebleNum.fromString(input.replace(/s/g, "")).value;
 		else {
@@ -56,7 +58,7 @@ class VebleNum {
 		let res;
 		if (typeof this.value == "number") {
 			if (typeof o.value == "number") {
-				if (o.value > 100) throw "TOO BIG OMG";
+				if (o.value > VebleNum.LIMIT_MULTIPLIER) throw "TOO BIG OMG";
 				res = new VebleNum(this.value + o.value);
 			} else {
 				o.value.unshift(this.value);
@@ -64,7 +66,7 @@ class VebleNum {
 			}
 		} else {
 			if (typeof o.value == "number") {
-				if (o.value > 100) throw "TOO BIG OMG";
+				if (o.value > VebleNum.LIMIT_MULTIPLIER) throw "TOO BIG OMG";
 				res = this.clone();
 				res.value.push(o.value);
 			} else {
@@ -86,7 +88,7 @@ class VebleNum {
 		let res;
 		if (typeof this.value == "number") {
 			if (typeof o.value == "number") {
-				if (o.value > 100) throw "TOO BIG OMG";
+				if (o.value > VebleNum.LIMIT_MULTIPLIER) throw "TOO BIG OMG";
 				res = new VebleNum(this.value * o.value);
 			} else if (o.value.length > 1) {
 				res = new VebleNum(0);
@@ -96,7 +98,7 @@ class VebleNum {
 			} else res = o;
 		} else {
 			if (typeof o.value == "number") {
-				if (o.value > 100) throw "TOO BIG OMG";
+				if (o.value > VebleNum.LIMIT_MULTIPLIER) throw "TOO BIG OMG";
 				res = this.clone();
 
 				let c = 0;
@@ -149,7 +151,7 @@ class VebleNum {
 		let res;
 		if (typeof this.value == "number") {
 			if (typeof o.value == "number") {
-				if (o.value > 100) throw "TOO BIG OMG";
+				if (o.value > VebleNum.LIMIT_MULTIPLIER) throw "TOO BIG OMG";
 				res = new VebleNum(this.value ** o.value);
 			} else if (o.value.length > 1) {
 				res = new VebleNum(0);
@@ -162,7 +164,7 @@ class VebleNum {
 		} else {
 			res = this.clone(true);
 			if (typeof o.value == "number") {
-				if (o.value > 100) throw "TOO BIG OMG";
+				if (o.value > VebleNum.LIMIT_MULTIPLIER) throw "TOO BIG OMG";
 				for (let i = 0; i < o.value - 1; i++) res = res.mul(this);
 			} else {
 				if (o.value.length > 1) {
@@ -322,7 +324,6 @@ class VebleNum {
 				if (token.value == "w") args.push(new VebleNum([[1]]));
 				else {
 					let f = parseFloat(token.value);
-					if (f > 100) throw "TOO BIG OMG";
 					if (!isNaN(f)) args.push(new VebleNum(f));
 					else throw "Unknown token:" + token.value;
 				}
@@ -360,17 +361,21 @@ class Parser {
 			this.args = args;
 		}
 	};
+
 	static TYPES = {
 		LITERAL: 0,
 		IDENTIFIER: 1,
 		OPERATOR: 2,
 	};
+
 	static isNumber(char) {
 		return /[0-9w]/.test(char);
 	}
+
 	static isOperator(char) {
 		return /[+*^(),]/.test(char);
 	}
+
 	static tokenize(str) {
 		let tokens = [];
 		let numbuff = [];
@@ -394,16 +399,19 @@ class Parser {
 		if (idbuff.length > 0) tokens.push(new Parser.Token(Parser.TYPES.IDENTIFIER, idbuff.join("")));
 		return tokens;
 	}
+
 	static ASSOC = {
 		"+": "left",
 		"*": "left",
 		"^": "right",
 	};
+
 	static PREC = {
 		"+": 2,
 		"*": 3,
 		"^": 4,
 	};
+
 	static parse(tokens) {
 		let output = [];
 		let stack = [];

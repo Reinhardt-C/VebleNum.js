@@ -1,2 +1,2 @@
 # VebleNum.js
-A javascript library for handling ordinals &lt; phi(w,0)
+A javascript library for handling ordinals &lt; psi(&Omega;^&Omega;^&omega;)

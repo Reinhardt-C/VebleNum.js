@@ -80,7 +80,7 @@ class VebleNum {
 		let o;
 		if (!(other instanceof VebleNum)) o = new VebleNum(other);
 		else o = other.clone();
-		if (o.cmp(0) == 0) return 0;
+		if (o.cmp(0) == 0) return new VebleNum(0);
 		if (o.cmp(1) == 0) return this.clone();
 		if (this.cmp(1) == 0) return o;
 		let res;
@@ -142,10 +142,10 @@ class VebleNum {
 		let o;
 		if (!(other instanceof VebleNum)) o = new VebleNum(other);
 		else o = other.clone();
-		if (o.cmp(0) == 0) return 1;
+		if (o.cmp(0) == 0) return new VebleNum(1);
 		if (o.cmp(1) == 0) return this.clone();
-		if (this.cmp(0) == 0) return 0;
-		if (this.cmp(1) == 0) return 1;
+		if (this.cmp(0) == 0) return new VebleNum(0);
+		if (this.cmp(1) == 0) return new VebleNum(1);
 		let res;
 		if (typeof this.value == "number") {
 			if (typeof o.value == "number") {

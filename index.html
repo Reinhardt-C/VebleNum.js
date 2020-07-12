@@ -9,21 +9,11 @@
             let x = document.getElementById('exp').value;
             document.getElementById('out').innerText = O(x).toString();
         }
-        function solve2() {
-            let x = document.getElementById('exp2').value;
-            let a = [];
-            for (let i = 0; i < 6; i++) a.push(O(O(x).fundSequence(i).toString()).toString());
-            document.getElementById('out2').innerText = a.join(', ');
-        }
     </script>
 </head>
 <body>
     Expression: <input id='exp'><br>
     <button onclick="solve()">Solve!</button><br>
     <span id='out'></span>
-    <hr>
-    Expression: <input id='exp2'><br>
-    <button onclick="solve2()">Fundamental Sequence!</button><br>
-    <span id='out2'></span>
 </body>
 </html>

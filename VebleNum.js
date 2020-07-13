@@ -248,11 +248,7 @@ class VebleNum {
 		for (let i of this.value) {
 			if (str.length > 0) str += "+";
 			if (typeof i == "number") str += i;
-			else {
-				str += "phi(";
-				str += i.toString();
-				str += ")";
-			}
+			else str += `phi(${i.toString()})`;
 		}
 		return str;
 	}
@@ -263,13 +259,97 @@ class VebleNum {
 		for (let i of this.value) {
 			if (str.length > 0) str += "+";
 			if (typeof i == "number") str += i;
-			if (i.length == 1) {
-				if (i[0] instanceof VebleNum) {
-					str += `w^${VebleNum.needsParens(i[0].toCNF()) ? `(${i[0].toCNF()})` : i[0].toCNF()}`;
-				} else
-					str += `w^${VebleNum.needsParens(i.toString()) ? `(${i.toString()})` : i.toString()}`;
-			} else str += `phi(${i.toString()})`;
+			else {
+				if (i.length == 1) {
+					if (i[0] == 1) str += "w";
+					else if (i[0] instanceof VebleNum) str += `w^${VebleNum.handleParens(i[0].toCNF())}`;
+					else str += `w^${VebleNum.handleParens(new VebleNum(i[0]).toCNF())}`;
+				} else str += `phi(${i.toCNF()})`;
+			}
 		}
+		return str;
+	}
+
+	toMixed() {
+		let str = "";
+		if (typeof this.value == "number") return this.value.toString();
+		for (let i of this.value) {
+			if (str.length > 0) str += "+";
+			if (typeof i == "number") str += i;
+			else {
+				if (i.length == 1) {
+					if (i[0] == 1) str += "w";
+					else if (i[0] instanceof VebleNum)
+						str += `w^${
+							VebleNum.needsParens(VebleNum.fixUnary(i[0].toMixed()))
+								? `(${i[0].toMixed()})`
+								: i[0].toMixed()
+						}`;
+					else str += `w^${VebleNum.handleParens(new VebleNum(i[0]).toMixed())}`;
+				} else if (i.length == 2) {
+					if (i[0] == 1) {
+						if (i[1] instanceof VebleNum)
+							str += `e${
+								/[^(0-9w)]/.test(i[1].toMixed()) ? `(${i[1].toMixed()})` : i[1].toMixed()
+							}`;
+						else
+							str += `e${
+								/[^(0-9w)]/.test(new VebleNum(i[1]).toMixed())
+									? `(${new VebleNum(i[1]).toMixed()})`
+									: new VebleNum(i[1]).toMixed()
+							}`;
+					} else if (i[0] == 2) {
+						if (i[1] instanceof VebleNum)
+							str += `z${
+								/[^(0-9w)]/.test(i[1].toMixed()) ? `(${i[1].toMixed()})` : i[1].toMixed()
+							}`;
+						else
+							str += `z${
+								/[^(0-9w)]/.test(new VebleNum(i[1]).toMixed())
+									? `(${new VebleNum(i[1]).toMixed()})`
+									: new VebleNum(i[1]).toMixed()
+							}`;
+					} else if (i[0] == 3) {
+						if (i[1] instanceof VebleNum)
+							str += `n${
+								/[^(0-9w)]/.test(i[1].toMixed()) ? `(${i[1].toMixed()})` : i[1].toMixed()
+							}`;
+						else
+							str += `n${
+								/[^(0-9w)]/.test(new VebleNum(i[1]).toMixed())
+									? `(${new VebleNum(i[1]).toMixed()})`
+									: new VebleNum(i[1]).toMixed()
+							}`;
+					} else {
+						str += `phi(${i.map(e => new VebleNum(e).toMixed())})`;
+					}
+				} else if (i.length == 3) {
+					if (i[0] == 1 && i[1] == 0) {
+						if (i[2] instanceof VebleNum)
+							str += `G${
+								/[^(0-9w)]/.test(i[2].toMixed()) ? `(${i[2].toMixed()})` : i[2].toMixed()
+							}`;
+						else
+							str += `G${
+								/[^(0-9w)]/.test(new VebleNum(i[2]).toMixed())
+									? `(${new VebleNum(i[2]).toMixed()})`
+									: new VebleNum(i[2]).toMixed()
+							}`;
+					} else str += `phi(${i.map(e => new VebleNum(e).toMixed())})`;
+				} else str += `phi(${i.map(e => new VebleNum(e).toMixed())})`;
+			}
+		}
+		return str;
+	}
+
+	static fixUnary(str) {
+		return str.replace(/(e|z|n|G)(\d+)/g, function (match, c1, c2) {
+			return `${c1}(${c2})`;
+		});
+	}
+
+	static handleParens(str) {
+		if (VebleNum.needsParens(str)) return `(${str})`;
 		return str;
 	}
 
@@ -336,6 +416,7 @@ class VebleNum {
 	}
 
 	static fromString(str) {
+		str = VebleNum.fixUnary(str);
 		let tokens = Parser.tokenize(str);
 		let rpn = Parser.parse(tokens);
 		let args = [];

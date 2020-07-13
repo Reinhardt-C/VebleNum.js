@@ -176,13 +176,10 @@ class VebleNum {
 					// phi(a,b,c...) ^ phi(d,e,f...)
 					res = this.clone(true);
 					res.value = [res.value[0]];
-					// console.log(JSON.stringify(res), JSON.stringify(o));
 					if (res.value[0].length == 1) {
 						if (o.value[0].length == 1) {
 							if (typeof res.value[0][0] == "number") {
-								if (typeof o.value[0][0] == "number")
-									res.value[0][0] = new VebleNum(res.value[0][0]).mul(o);
-								else res.value[0][0] = o.value[0][0];
+								res.value[0][0] = new VebleNum(res.value[0][0]).mul(o);
 							} else {
 								res.value[0][0] = res.value[0][0].mul(o);
 							}
@@ -258,6 +255,30 @@ class VebleNum {
 			}
 		}
 		return str;
+	}
+
+	toCNF() {
+		let str = "";
+		if (typeof this.value == "number") return this.value.toString();
+		for (let i of this.value) {
+			if (str.length > 0) str += "+";
+			if (typeof i == "number") str += i;
+			if (i.length == 1) {
+				if (i[0] instanceof VebleNum) {
+					str += `w^${VebleNum.needsParens(i[0].toCNF()) ? `(${i[0].toCNF()})` : i[0].toCNF()}`;
+				} else
+					str += `w^${VebleNum.needsParens(i.toString()) ? `(${i.toString()})` : i.toString()}`;
+			} else str += `phi(${i.toString()})`;
+		}
+		return str;
+	}
+
+	static needsParens(str) {
+		let t = Parser.parse(Parser.tokenize(str))
+			.map(e => e.value)
+			.join("");
+		if (t.endsWith("+") || t.endsWith("*")) return true;
+		return false;
 	}
 
 	static cloneTerm(term) {
@@ -377,6 +398,9 @@ class Parser {
 	}
 
 	static tokenize(str) {
+		str.replace(/([-/])/, function (match, c1) {
+			throw 'Unknown char: "' + c1 + '"';
+		});
 		let tokens = [];
 		let numbuff = [];
 		let idbuff = [];

@@ -82,7 +82,7 @@ class VebleNum {
 		let o;
 		if (!(other instanceof VebleNum)) o = new VebleNum(other);
 		else o = other.clone();
-		if (o.cmp(0) == 0) return new VebleNum(0);
+		if (o.cmp(0) == 0 || this.cmp(0) == 0) return new VebleNum(0);
 		if (o.cmp(1) == 0) return this.clone();
 		if (this.cmp(1) == 0) return o;
 		let res;
@@ -153,13 +153,21 @@ class VebleNum {
 			if (typeof o.value == "number") {
 				if (o.value > VebleNum.LIMIT_MULTIPLIER) throw "TOO BIG OMG";
 				res = new VebleNum(this.value ** o.value);
+				/*} else if (o.cmp("e0") == 1) {
+				return O([[1]]).pow(other); */
 			} else if (o.value.length > 1) {
-				res = new VebleNum(0);
+				res = new VebleNum(1);
 				for (let i of o.value) {
 					res = res.mul(this.pow([i]));
 				}
 			} else {
-				res = o;
+				if (o.value[0].length > 1) res = o;
+				else {
+					if (typeof o.value[0][0] == "number" || typeof o.value[0][0].value == "number") {
+						let n = (o.value[0][0].value || o.value[0][0]) - 1;
+						res = O("w^w^" + n);
+					} else res = O([[1]]).pow(o);
+				}
 			}
 		} else {
 			res = this.clone(true);
@@ -209,7 +217,7 @@ class VebleNum {
 		if (this.toString() == o.toString()) return 0;
 		if (!(o.value instanceof Array)) return 1;
 		for (let i in this.value) {
-			if (!o.value[i]) return -1;
+			if (!o.value[i]) return 1;
 			let t = VebleNum.compareTerms(this.value[i], o.value[i]);
 			if (t == 0) continue;
 			return t;
@@ -264,7 +272,7 @@ class VebleNum {
 					if (i[0] == 1) str += "w";
 					else if (i[0] instanceof VebleNum) str += `w^${VebleNum.handleParens(i[0].toCNF())}`;
 					else str += `w^${VebleNum.handleParens(new VebleNum(i[0]).toCNF())}`;
-				} else str += `phi(${i.toCNF()})`;
+				} else str += `phi(${i.map(e => new VebleNum(e).toMixed())})`;
 			}
 		}
 		return str;
@@ -342,8 +350,43 @@ class VebleNum {
 		return str;
 	}
 
+	toHTML() {
+		let str = "";
+		if (typeof this.value == "number") return this.value.toString();
+		for (let i of this.value) {
+			if (str.length > 0) str += "+";
+			if (typeof i == "number") str += i;
+			else {
+				if (i.length == 1) {
+					if (i[0] == 1) str += "&omega;";
+					else if (i[0] instanceof VebleNum) str += `&omega;<sup>${i[0].toHTML()}</sup>`;
+					else str += `&omega;<sup>${new VebleNum(i[0]).toHTML()}</sup>`;
+				} else if (i.length == 2) {
+					if (i[0] == 1) {
+						if (i[1] instanceof VebleNum) str += `&epsilon;<sub>${i[1].toHTML()}</sub>`;
+						else str += `&epsilon;<sub>${new VebleNum(i[1]).toHTML()}</sub>`;
+					} else if (i[0] == 2) {
+						if (i[1] instanceof VebleNum) str += `&zeta;<sub>${i[1].toHTML()}</sub>`;
+						else str += `&zeta;<sub>${new VebleNum(i[1]).toHTML()}</sub>`;
+					} else if (i[0] == 3) {
+						if (i[1] instanceof VebleNum) str += `&eta;<sub>${i[1].toHTML()}</sub>`;
+						else str += `&eta;<sub>${new VebleNum(i[1]).toHTML()}</sub>`;
+					} else {
+						str += `&phi;(${i.map(e => new VebleNum(e).toHTML())})`;
+					}
+				} else if (i.length == 3) {
+					if (i[0] == 1 && i[1] == 0) {
+						if (i[2] instanceof VebleNum) str += `&Gamma;<sub>${i[2].toHTML()}</sub>`;
+						else str += `&Gamma;<sub>${new VebleNum(i[2]).toHTML()}</sub>`;
+					} else str += `&phi;(${i.map(e => new VebleNum(e).toHTML())})`;
+				} else str += `&phi;(${i.map(e => new VebleNum(e).toHTML())})`;
+			}
+		}
+		return str;
+	}
+
 	static fixUnary(str) {
-		return str.replace(/(e|z|n|G)(\d+)/g, function (match, c1, c2) {
+		return str.replace(/(e|z|n|G)((\d|w)+)/g, function (match, c1, c2) {
 			return `${c1}(${c2})`;
 		});
 	}
@@ -373,22 +416,32 @@ class VebleNum {
 
 	static compareTerms(a, b) {
 		if (a == undefined || b == undefined) return 0;
-		if (a instanceof VebleNum) a = a.value;
-		if (b instanceof VebleNum) b = b.value;
+		if (JSON.stringify(a) == JSON.stringify(b)) return 0;
+		if (a instanceof VebleNum) a = [a];
+		if (b instanceof VebleNum) b = [b];
 		if (typeof a == "number") {
 			if (typeof b == "number") return a > b ? 1 : a < b ? -1 : 0;
 			return -1;
 		}
 		if (typeof b == "number") return 1;
 
-		let maxa = VebleNum.max(...a);
-		let maxb = VebleNum.max(...b);
+		let maxa = VebleNum.sumargs(...a);
+		let maxb = VebleNum.sumargs(...b);
 		if (maxa.cmp([b]) == 1) return 1;
-		if (maxb.cmp([a]) == -1 && new VebleNum([a]).toString() > new VebleNum([b]).toString())
-			return 1;
+		if (maxb.cmp([a]) == -1 && VebleNum.lexCmp(a, b) == 1) return 1;
 		if (maxb.cmp([a]) == 1) return -1;
-		if (maxa.cmp([b]) == -1 && new VebleNum([a]).toString() < new VebleNum([b]).toString())
-			return -1;
+		if (maxa.cmp([b]) == -1 && VebleNum.lexCmp(a, b) == -1) return -1;
+		return 0;
+	}
+
+	static lexCmp(a, b) {
+		if (a.length > b.length) return 1;
+		if (b.length > a.length) return -1;
+		for (let i = 0; i < a.length; i++) {
+			let c = new VebleNum(a[i]).cmp(b[i]);
+			if (c == 0) continue;
+			return c;
+		}
 		return 0;
 	}
 
@@ -404,11 +457,11 @@ class VebleNum {
 		return new VebleNum(a).pow(b);
 	}
 
-	static max() {
+	static sumargs() {
 		let a = [...arguments];
-		let max = new VebleNum(0);
-		for (let i of a) if (max.cmp(i) == -1) max = new VebleNum(i);
-		return max;
+		let sum = new VebleNum(0);
+		for (let i of a) sum = sum.add(new VebleNum(i));
+		return sum;
 	}
 
 	static phi() {

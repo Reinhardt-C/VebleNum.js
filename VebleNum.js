@@ -9,6 +9,8 @@ class VNClass {
 		Object.setPrototypeOf(this, type.prototype);
 	}
 
+	static MAX_TERMS = 200;
+
 	clone() {
 		let obj = new CloneTemplate();
 		for (let i in this) {
@@ -30,7 +32,7 @@ class VebleNum extends VNClass {
 	 */
 	constructor(str) {
 		super();
-		let v = Parser.fromString(str);
+		let v = Parser.fromString(str.replace(/\s/g, ""));
 		for (let i in v) this[i] = v[i];
 		this.setType(v.__proto__.constructor);
 	}
@@ -62,13 +64,24 @@ class Atom extends VNClass {
 	mul(other) {
 		if (typeof other == "number") return new Atom(this.value * other);
 		if (other instanceof Atom) return new Atom(this.value * other.value);
+		if (this.value == 1) return other.clone();
+		if (this.value == 0) return new Atom(0);
 		return other;
 	}
 
 	pow(other) {
 		if (typeof other == "number") return new Atom(this.value ** other);
 		if (other instanceof Atom) return new Atom(this.value ** other.value);
+		if (this.value == 1) return new Atom(1);
+		if (this.value == 0) return new Atom(0);
 		return other;
+	}
+
+	cmp(other) {
+		if (typeof other == "number") return this.value > other ? 1 : this.value < other ? -1 : 0;
+		if (other instanceof Atom)
+			return this.value > other.value ? 1 : this.value < other.value ? -1 : 0;
+		return -1;
 	}
 
 	toString() {
@@ -120,6 +133,34 @@ class Sum extends VNClass {
 			this.setType(Atom);
 		}
 
+		// Remove redundant terms
+		for (let i = 0; i < this.terms - 1; i++) {
+			if (typeof this.addends[i] == "number") {
+				this.addends.splice(i--, 1);
+				continue;
+			}
+			if (this.addends[i].cmp(this.addends[i + 1]) == -1) {
+				if (this.addends[i] instanceof Product) {
+					if (this.addends[i + 1] instanceof Product) {
+						if (this.addends[i].ord.cmp(this.addends[i + 1].ord) == 0) continue;
+						this.addends.splice(i--, 1);
+						continue;
+					}
+					if (this.addends[i].ord.cmp(this.addends[i + 1]) == 0) continue;
+					this.addends.splice(i--, 1);
+					continue;
+				}
+				if (this.addends[i + 1] instanceof Product) {
+					if (this.addends[i].cmp(this.addends[i + 1].ord) == 0) continue;
+					this.addends.splice(i--, 1);
+					continue;
+				}
+				if (this.addends[i].cmp(this.addends[i + 1]) == 0) continue;
+				this.addends.splice(i--, 1);
+				continue;
+			}
+		}
+
 		// Collect like terms
 		for (let i = 0; i < this.terms - 1; i++) {
 			// If they're equal just merge into a Product
@@ -156,34 +197,6 @@ class Sum extends VNClass {
 					this.addends[i + 1] = new Product(this.addends[i + 1].ord, 1 + this.addends[i + 1].mult);
 					this.addends.splice(i--, 1);
 				}
-			}
-		}
-
-		// Remove redundant terms
-		for (let i = 0; i < this.terms - 1; i++) {
-			if (typeof this.addends[i] == "number") {
-				this.addends.splice(i--, 1);
-				continue;
-			}
-			if (this.addends[i].cmp(this.addends[i + 1]) == -1) {
-				if (this.addends[i] instanceof Product) {
-					if (this.addends[i + 1] instanceof Product) {
-						if (this.addends[i].ord.cmp(this.addends[i + 1].ord) == 0) continue;
-						this.addends.splice(i--, 1);
-						continue;
-					}
-					if (this.addends[i].ord.cmp(this.addends[i + 1]) == 0) continue;
-					this.addends.splice(i--, 1);
-					continue;
-				}
-				if (this.addends[i + 1] instanceof Product) {
-					if (this.addends[i].cmp(this.addends[i + 1].ord) == 0) continue;
-					this.addends.splice(i--, 1);
-					continue;
-				}
-				if (this.addends[i].cmp(this.addends[i + 1]) == 0) continue;
-				this.addends.splice(i--, 1);
-				continue;
 			}
 		}
 
@@ -225,13 +238,26 @@ class Sum extends VNClass {
 	}
 
 	mul(other) {
-		return new Sum(
-			(this.addends[0] instanceof VNClass ? this.addends[0] : new Atom(this.addends[0])).mul(other),
-			...this.addends.slice(1)
-		);
+		if (other == 1 || other.value == 1) return this.clone();
+		if (other == 0 || other.value == 0) return new Atom(0);
+		if (typeof other == "number") other = new Atom(other);
+		if (other instanceof Sum) return new Sum(...other.addends.map(e => this.mul(e)));
+		if (!(other instanceof Atom)) return this.addends[0].mul(other);
+		let t = this.addends[0];
+		if (typeof t == "number") t = new Atom(t);
+		return new Sum(t.mul(other), ...this.addends.slice(1));
 	}
 
 	pow(other) {
+		if (other == 1 || other.value == 1) return this.clone();
+		if (other == 0 || other.value == 0) return new Atom(1);
+		if (typeof other == "number") other = new Atom(other);
+		if (other instanceof Atom) {
+			if (other.value > VNClass.MAX_TERMS - 1) throw "Too many terms, reduce exponent";
+			let t = this.clone();
+			for (let i = 0; i < other.value - 1; i++) t = t.mul(this);
+			return t;
+		}
 		let t = this.addends[0];
 		if (typeof t == "number") t = new Atom(t);
 		return t.pow(other);
@@ -324,18 +350,23 @@ class Product extends VNClass {
 		// If other > ord then -1, if other == ord then 1, or other < ord then 1
 		if (other instanceof Phi) return this.ord.cmp(other) == -1 ? -1 : 1;
 		// Handle comparison with other Products
-		let oc = this.ord.cmp(other);
+		let oc = this.ord.cmp(other.ord);
 		if (oc !== 0) return oc;
 		return this.mult > other.mult ? 1 : this.mult < other.mult ? -1 : 0;
 	}
 
 	mul(other) {
+		if (other == 1 || other.value == 1) return this.clone();
+		if (other == 0 || other.value == 0) return new Atom(0);
 		if (other instanceof Atom) other = other.value;
+		if (other instanceof Sum) return new Sum(...other.addends.map(e => this.mul(e)));
 		if (typeof other == "number") return new Product(this.ord.mul(other), this.mult);
 		return this.ord.mul(other);
 	}
 
 	pow(other) {
+		if (other == 1 || other.value == 1) return this.clone();
+		if (other == 0 || other.value == 0) return new Atom(1);
 		return new Product(this.ord.pow(other), this.mul);
 	}
 
@@ -346,7 +377,9 @@ class Product extends VNClass {
 		return Parser.handleParens(this.ord.toMixed()) + "*" + this.mult.toString();
 	}
 	toHTML() {
-		return Parser.handleParens(this.ord.toHTML()) + "*" + this.mult.toString();
+		return (
+			Parser.handleParens(this.ord.toMixed(), false, this.ord.toHTML()) + "*" + this.mult.toString()
+		);
 	}
 }
 
@@ -398,20 +431,20 @@ class Phi extends VNClass {
 		if (other instanceof Sum || other instanceof Product) return -other.cmp(this);
 		/**
 		 * the basic comparison algorithm alone is just
-		 * φ(X) > φ(Y) iff the sum of args in X is greater than
-		 * φ(Y) or (X is lexicographically greater than Y and φ(X)
-		 * is greater than the sum of args in Y) - Panda
+		 * φ(X) > φ(Y) iff the sum of args in X is greater than φ(Y)
+		 * or
+		 * (X is lexicographically greater than Y and φ(X) is greater than the sum of args in Y)
 		 */
 		let sumthis = new Sum(...this.args);
 		let sumother = new Sum(...other.args);
 		if (
-			(sumthis instanceof Sum && sumthis.cmp(other) == 1) ||
+			sumthis.cmp(other) == 1 ||
 			((sumother instanceof Atom || sumother.cmp(this) == -1) && this.lexcmp(other) == 1)
 		)
 			return 1;
 		if (
-			(sumother instanceof Sum && sumother.cmp(this) == 1) ||
-			((sumother instanceof Atom || sumthis.cmp(other) == -1) && other.lexcmp(this) == 1)
+			sumother.cmp(this) == 1 ||
+			((sumthis instanceof Atom || sumthis.cmp(other) == -1) && other.lexcmp(this) == 1)
 		)
 			return -1;
 		return 0;
@@ -463,22 +496,12 @@ class Phi extends VNClass {
 	}
 
 	mul(other) {
+		if (other == 1 || other.value == 1) return this.clone();
+		if (other == 0 || other.value == 0) return new Atom(0);
 		if (other instanceof Atom) other = other.value;
 		if (typeof other == "number") return new Product(new Phi(...this.args), other);
 		if (other instanceof Sum) return new Sum(...other.addends.map(e => this.mul(e)));
 		if (other instanceof Product) return new Product(this.mul(other.ord), other.mult);
-		if (this.args.length == 1) {
-			if (other.args.length == 1) {
-				if (typeof this.args[0] == "number") {
-					if (typeof other.args[0] == "number") return new Phi(this.args[0] + other.args[0]);
-					return new Phi(...other.clone().args);
-				}
-				let o = this.args[0];
-				if (typeof o == "number") o = new Atom(o);
-				return new Phi(o.add(other.args[0]));
-			}
-			return other.clone();
-		}
 		let t = this;
 		if (this.args.length > 1) t = Phi.noStandard(this);
 		if (other.args.length > 1) other = Phi.noStandard(other);
@@ -488,6 +511,8 @@ class Phi extends VNClass {
 	}
 
 	pow(other) {
+		if (other == 1 || other.value == 1) return this.clone();
+		if (other == 0 || other.value == 0) return new Atom(1);
 		if (other instanceof Atom) other = other.value;
 		let t = this;
 		if (this.args.length > 1) t = Phi.noStandard(this);
@@ -549,10 +574,10 @@ class Phi extends VNClass {
 			return `&eta;<sub>${s}</sub>`;
 		}
 		if (t.args.length == 3 && t.args[0] == 1 && t.args[1] == 0) {
-			let s = t.args[2].HTtoML();
+			let s = t.args[2].toHTML();
 			return `&Gamma;<sub>${s}</sub>`;
 		}
-		return "&phi;(" + t.args.map(e => e?.toMixed()) + ")";
+		return "&phi;(" + t.args.map(e => e?.toHTML()) + ")";
 	}
 
 	[Symbol.iterator]() {
@@ -736,9 +761,9 @@ class Parser {
 		return args[0];
 	}
 
-	static handleParens(str, sub = false) {
-		if (Parser.needsParens(str, sub)) return `(${str})`;
-		return str;
+	static handleParens(str, sub = false, replace = false) {
+		if (Parser.needsParens(str, sub)) return `(${replace !== false ? replace : str})`;
+		return replace !== false ? replace : str;
 	}
 
 	static needsParens(str, sub = false) {

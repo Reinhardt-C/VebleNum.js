@@ -1,505 +1,38 @@
-class VebleNum {
-	static LIMIT_MULTIPLIER = 400; // This can be changed, but be careful you don't want arrays with thousands of elements
+"use strict";
 
-	constructor(input, nostandard = false) {
-		if (typeof input == "string") this.value = VebleNum.fromString(input.replace(/s/g, "")).value;
-		else {
-			this.value = (input instanceof VebleNum ? input.value : input) || 0;
-			if (!nostandard) this.standardize();
-		}
+class VNClass {
+	/**
+	 * Set the type of this instance
+	 * @param type - The type to set to
+	 */
+	setType(type) {
+		Object.setPrototypeOf(this, type.prototype);
 	}
 
-	standardize() {
-		if (this.value instanceof Array) {
-			this.value = this.value.map(e => (JSON.stringify(e) == "[0]" ? 1 : e));
-			for (let i = 1; i < this.value.length; i++)
-				while (
-					this.value.length > 1 &&
-					VebleNum.compareTerms(this.value[i], this.value[i - 1]) == 1 &&
-					typeof this.value[i - 1] != "number"
-				) {
-					this.value.splice(i - 1, 1);
-					i--;
-				}
-			let nums = [];
-			for (let e = 0; e < this.value.length; e++) {
-				let i = this.value[e];
-				if (typeof i == "number") {
-					nums.push(this.value.splice(e, 1)[0]);
-					e--;
-					continue;
-				} else {
-					// Handle phi(phi(1,0)) = phi(1,0), phi(phi(1,0,0),0) = phi(1,0,0) etc
-					nums = [];
-					for (let k in i) {
-						let j = i[k];
-						if (!(typeof j == "number")) {
-							let t = [...i];
-							t[k] = "_";
-							if (typeof j.value == "number") i[k] = j.value;
-							else if (j.isFixedPoint(t)) this.value[e] = j.value[0];
-						}
-					}
-				}
-				while (i.length > 1 && i[0] == 0) i.splice(0, 1);
-				if (JSON.stringify(i) == "[0]") this.value[e] = 1;
-			}
-			let num = nums.reduce((a, b) => a + b, 0);
-			if (num > 0) this.value.push(num);
-			if (this.value.length == 0) this.value = 0;
-			if (this.value.length == 1 && typeof this.value[0] == "number") this.value = this.value[0];
+	clone() {
+		let obj = new CloneTemplate();
+		for (let i in this) {
+			if (this[i] instanceof VNClass) obj[i] = this[i].clone();
+			else obj[i] = this[i];
 		}
+		obj.setType(this.__proto__.constructor);
+		return obj;
 	}
 
 	add(other) {
-		let o;
-		if (!(other instanceof VebleNum)) o = new VebleNum(other);
-		else o = other.clone();
-		let res;
-		if (typeof this.value == "number") {
-			if (typeof o.value == "number") {
-				if (o.value > VebleNum.LIMIT_MULTIPLIER) throw "TOO BIG OMG";
-				res = new VebleNum(this.value + o.value);
-			} else {
-				o.value.unshift(this.value);
-				res = o;
-			}
-		} else {
-			if (typeof o.value == "number") {
-				if (o.value > VebleNum.LIMIT_MULTIPLIER) throw "TOO BIG OMG";
-				res = this.clone();
-				res.value.push(o.value);
-			} else {
-				res = this.clone();
-				res.value = res.value.concat(o.value);
-			}
-		}
-		res.standardize();
-		return res;
+		return new Sum(this, other);
 	}
+}
 
-	mul(other) {
-		let o;
-		if (!(other instanceof VebleNum)) o = new VebleNum(other);
-		else o = other.clone();
-		if (o.cmp(0) == 0 || this.cmp(0) == 0) return new VebleNum(0);
-		if (o.cmp(1) == 0) return this.clone();
-		if (this.cmp(1) == 0) return o;
-		let res;
-		if (typeof this.value == "number") {
-			if (typeof o.value == "number") {
-				if (o.value > VebleNum.LIMIT_MULTIPLIER) throw "TOO BIG OMG";
-				res = new VebleNum(this.value * o.value);
-			} else if (o.value.length > 1) {
-				res = new VebleNum(0);
-				for (let i of o.value) {
-					res = res.add(this.mul([i]));
-				}
-			} else res = o;
-		} else {
-			if (typeof o.value == "number") {
-				if (o.value > VebleNum.LIMIT_MULTIPLIER) throw "TOO BIG OMG";
-				res = this.clone();
-
-				let c = 0;
-				for (let i of res.value) if (VebleNum.compareTerms(i, res.value[0]) == 0) c++;
-				let t;
-				for (let i = 0; i < o.value - 1; i++) {
-					t = this.clone();
-					for (let j = 0; j < c; j++) res.value.splice(1, 0, t.value[0]);
-				}
-			} else {
-				if (o.value.length > 1) {
-					res = new VebleNum(0);
-					for (let i of o.value) {
-						res = res.add(this.mul([i]));
-					}
-				} else {
-					res = this.clone(true);
-					res.value = [res.value[0]];
-					if (res.value[0].length == 1) {
-						if (o.value[0].length == 1) {
-							if (typeof res.value[0][0] == "number") {
-								if (typeof o.value[0][0] == "number") res.value[0][0] += o.value[0][0];
-								else res.value[0][0] = o.value[0][0];
-							} else {
-								res.value[0][0] = new VebleNum(res.value[0][0]).add(o.value[0][0]);
-							}
-						} else {
-							res.value[0][0] = new VebleNum(res.value[0][0]).add([o.value[0]]);
-						}
-					} else {
-						// Handle e0*w
-						let t = new VebleNum([[res.clone()]], true);
-						res = t.mul(o);
-					}
-				}
-			}
-		}
-		res.standardize();
-		return res;
-	}
-
-	pow(other) {
-		let o;
-		if (!(other instanceof VebleNum)) o = new VebleNum(other);
-		else o = other.clone();
-		if (o.cmp(0) == 0) return new VebleNum(1);
-		if (o.cmp(1) == 0) return this.clone();
-		if (this.cmp(0) == 0) return new VebleNum(0);
-		if (this.cmp(1) == 0) return new VebleNum(1);
-		let res;
-		if (typeof this.value == "number") {
-			if (typeof o.value == "number") {
-				if (o.value > VebleNum.LIMIT_MULTIPLIER) throw "TOO BIG OMG";
-				res = new VebleNum(this.value ** o.value);
-				/*} else if (o.cmp("e0") == 1) {
-				return O([[1]]).pow(other); */
-			} else if (o.value.length > 1) {
-				res = new VebleNum(1);
-				for (let i of o.value) {
-					res = res.mul(this.pow([i]));
-				}
-			} else {
-				if (o.value[0].length > 1) res = o;
-				else {
-					if (typeof o.value[0][0] == "number" || typeof o.value[0][0].value == "number") {
-						let n = (o.value[0][0].value || o.value[0][0]) - 1;
-						res = O("w^w^" + n);
-					} else res = O([[1]]).pow(o);
-				}
-			}
-		} else {
-			res = this.clone(true);
-			if (typeof o.value == "number") {
-				if (o.value > VebleNum.LIMIT_MULTIPLIER) throw "TOO BIG OMG";
-				for (let i = 0; i < o.value - 1; i++) res = res.mul(this);
-			} else {
-				if (o.value.length > 1) {
-					res = new VebleNum(0);
-					for (let i of o.value) {
-						res = res.mul(this.pow([i]));
-					}
-				} else {
-					// phi(a,b,c...) ^ phi(d,e,f...)
-					res = this.clone(true);
-					res.value = [res.value[0]];
-					if (res.value[0].length == 1) {
-						if (o.value[0].length == 1) {
-							if (typeof res.value[0][0] == "number") {
-								res.value[0][0] = new VebleNum(res.value[0][0]).mul(o);
-							} else {
-								res.value[0][0] = res.value[0][0].mul(o);
-							}
-						} else {
-							res.value[0][0] = new VebleNum(res.value[0][0]).mul(o);
-						}
-					} else {
-						let t = new VebleNum([[res.clone()]], true);
-						res = t.pow(o);
-					}
-				}
-			}
-		}
-		res.standardize();
-		return res;
-	}
-
-	cmp(other) {
-		let o = other;
-		if (!(other instanceof VebleNum)) o = new VebleNum(other);
-		if (!(this.value instanceof Array)) {
-			if (!(o.value instanceof Array))
-				return this.value > o.value ? 1 : o.value > this.value ? -1 : 0;
-
-			return -1;
-		}
-		if (this.toString() == o.toString()) return 0;
-		if (!(o.value instanceof Array)) return 1;
-		for (let i in this.value) {
-			if (!o.value[i]) return 1;
-			let t = VebleNum.compareTerms(this.value[i], o.value[i]);
-			if (t == 0) continue;
-			return t;
-		}
-	}
-
-	isFixedPoint(a) {
-		// Args like [1,0,0,'_',0] for fixed point of a -> phi(1,0,0,a,0)
-		if (typeof this.value == "number") return false;
-		if (this.value.length > 1) return false;
-		let index = a.indexOf("_");
-		for (let i = index + 1; i < a.length; i++) if (new VebleNum(a[i]).cmp(0) !== 0) return false;
-		if (a.length > this.value[0].length) return false;
-		if (this.value[0].length > a.length) return true;
-		for (let i in a) {
-			if (a[i] == "_") break;
-			let cmp = new VebleNum(a[i]).cmp(this.value[0][i]);
-			if (cmp == 1) return false;
-			if (cmp == -1) return true;
-		}
-		return false;
-	}
-
-	clone(nostandard = false) {
-		if (this.value instanceof Array) {
-			let clone = [];
-			for (let i of this.value) clone.push(VebleNum.cloneTerm(i));
-			return new VebleNum(clone, nostandard);
-		}
-		return new VebleNum(this.value, nostandard);
-	}
-
-	toString() {
-		let str = "";
-		if (typeof this.value == "number") return this.value.toString();
-		for (let i of this.value) {
-			if (str.length > 0) str += "+";
-			if (typeof i == "number") str += i;
-			else str += `phi(${i.toString()})`;
-		}
-		return str;
-	}
-
-	toCNF() {
-		let str = "";
-		if (typeof this.value == "number") return this.value.toString();
-		for (let i of this.value) {
-			if (str.length > 0) str += "+";
-			if (typeof i == "number") str += i;
-			else {
-				if (i.length == 1) {
-					if (i[0] == 1) str += "w";
-					else if (i[0] instanceof VebleNum) str += `w^${VebleNum.handleParens(i[0].toCNF())}`;
-					else str += `w^${VebleNum.handleParens(new VebleNum(i[0]).toCNF())}`;
-				} else str += `phi(${i.map(e => new VebleNum(e).toMixed())})`;
-			}
-		}
-		return str;
-	}
-
-	toMixed() {
-		let str = "";
-		if (typeof this.value == "number") return this.value.toString();
-		for (let i of this.value) {
-			if (str.length > 0) str += "+";
-			if (typeof i == "number") str += i;
-			else {
-				if (i.length == 1) {
-					if (i[0] == 1) str += "w";
-					else if (i[0] instanceof VebleNum)
-						str += `w^${
-							VebleNum.needsParens(VebleNum.fixUnary(i[0].toMixed()))
-								? `(${i[0].toMixed()})`
-								: i[0].toMixed()
-						}`;
-					else str += `w^${VebleNum.handleParens(new VebleNum(i[0]).toMixed())}`;
-				} else if (i.length == 2) {
-					if (i[0] == 1) {
-						if (i[1] instanceof VebleNum)
-							str += `e${
-								/[^(0-9w)]/.test(i[1].toMixed()) ? `(${i[1].toMixed()})` : i[1].toMixed()
-							}`;
-						else
-							str += `e${
-								/[^(0-9w)]/.test(new VebleNum(i[1]).toMixed())
-									? `(${new VebleNum(i[1]).toMixed()})`
-									: new VebleNum(i[1]).toMixed()
-							}`;
-					} else if (i[0] == 2) {
-						if (i[1] instanceof VebleNum)
-							str += `z${
-								/[^(0-9w)]/.test(i[1].toMixed()) ? `(${i[1].toMixed()})` : i[1].toMixed()
-							}`;
-						else
-							str += `z${
-								/[^(0-9w)]/.test(new VebleNum(i[1]).toMixed())
-									? `(${new VebleNum(i[1]).toMixed()})`
-									: new VebleNum(i[1]).toMixed()
-							}`;
-					} else if (i[0] == 3) {
-						if (i[1] instanceof VebleNum)
-							str += `n${
-								/[^(0-9w)]/.test(i[1].toMixed()) ? `(${i[1].toMixed()})` : i[1].toMixed()
-							}`;
-						else
-							str += `n${
-								/[^(0-9w)]/.test(new VebleNum(i[1]).toMixed())
-									? `(${new VebleNum(i[1]).toMixed()})`
-									: new VebleNum(i[1]).toMixed()
-							}`;
-					} else {
-						str += `phi(${i.map(e => new VebleNum(e).toMixed())})`;
-					}
-				} else if (i.length == 3) {
-					if (i[0] == 1 && i[1] == 0) {
-						if (i[2] instanceof VebleNum)
-							str += `G${
-								/[^(0-9w)]/.test(i[2].toMixed()) ? `(${i[2].toMixed()})` : i[2].toMixed()
-							}`;
-						else
-							str += `G${
-								/[^(0-9w)]/.test(new VebleNum(i[2]).toMixed())
-									? `(${new VebleNum(i[2]).toMixed()})`
-									: new VebleNum(i[2]).toMixed()
-							}`;
-					} else str += `phi(${i.map(e => new VebleNum(e).toMixed())})`;
-				} else str += `phi(${i.map(e => new VebleNum(e).toMixed())})`;
-			}
-		}
-		return str;
-	}
-
-	toHTML() {
-		let str = "";
-		if (typeof this.value == "number") return this.value.toString();
-		for (let i of this.value) {
-			if (str.length > 0) str += "+";
-			if (typeof i == "number") str += i;
-			else {
-				if (i.length == 1) {
-					if (i[0] == 1) str += "&omega;";
-					else if (i[0] instanceof VebleNum) str += `&omega;<sup>${i[0].toHTML()}</sup>`;
-					else str += `&omega;<sup>${new VebleNum(i[0]).toHTML()}</sup>`;
-				} else if (i.length == 2) {
-					if (i[0] == 1) {
-						if (i[1] instanceof VebleNum) str += `&epsilon;<sub>${i[1].toHTML()}</sub>`;
-						else str += `&epsilon;<sub>${new VebleNum(i[1]).toHTML()}</sub>`;
-					} else if (i[0] == 2) {
-						if (i[1] instanceof VebleNum) str += `&zeta;<sub>${i[1].toHTML()}</sub>`;
-						else str += `&zeta;<sub>${new VebleNum(i[1]).toHTML()}</sub>`;
-					} else if (i[0] == 3) {
-						if (i[1] instanceof VebleNum) str += `&eta;<sub>${i[1].toHTML()}</sub>`;
-						else str += `&eta;<sub>${new VebleNum(i[1]).toHTML()}</sub>`;
-					} else {
-						str += `&phi;(${i.map(e => new VebleNum(e).toHTML())})`;
-					}
-				} else if (i.length == 3) {
-					if (i[0] == 1 && i[1] == 0) {
-						if (i[2] instanceof VebleNum) str += `&Gamma;<sub>${i[2].toHTML()}</sub>`;
-						else str += `&Gamma;<sub>${new VebleNum(i[2]).toHTML()}</sub>`;
-					} else str += `&phi;(${i.map(e => new VebleNum(e).toHTML())})`;
-				} else str += `&phi;(${i.map(e => new VebleNum(e).toHTML())})`;
-			}
-		}
-		return str;
-	}
-
-	static fixUnary(str) {
-		return str.replace(/(e|z|n|G)((\d|w)+)/g, function (match, c1, c2) {
-			return `${c1}(${c2})`;
-		});
-	}
-
-	static handleParens(str) {
-		if (VebleNum.needsParens(str)) return `(${str})`;
-		return str;
-	}
-
-	static needsParens(str) {
-		let t = Parser.parse(Parser.tokenize(str))
-			.map(e => e.value)
-			.join("");
-		if (t.endsWith("+") || t.endsWith("*")) return true;
-		return false;
-	}
-
-	static cloneTerm(term) {
-		if (typeof term == "number") return term;
-		let clone = [];
-		for (let i of term) {
-			if (i instanceof VebleNum) clone.push(i.clone());
-			else clone.push(i);
-		}
-		return clone;
-	}
-
-	static compareTerms(a, b) {
-		if (a == undefined || b == undefined) return 0;
-		if (JSON.stringify(a) == JSON.stringify(b)) return 0;
-		if (a instanceof VebleNum) a = [a];
-		if (b instanceof VebleNum) b = [b];
-		if (typeof a == "number") {
-			if (typeof b == "number") return a > b ? 1 : a < b ? -1 : 0;
-			return -1;
-		}
-		if (typeof b == "number") return 1;
-
-		let maxa = VebleNum.sumargs(...a);
-		let maxb = VebleNum.sumargs(...b);
-		if (maxa.cmp([b]) == 1) return 1;
-		if (maxb.cmp([a]) == -1 && VebleNum.lexCmp(a, b) == 1) return 1;
-		if (maxb.cmp([a]) == 1) return -1;
-		if (maxa.cmp([b]) == -1 && VebleNum.lexCmp(a, b) == -1) return -1;
-		return 0;
-	}
-
-	static lexCmp(a, b) {
-		if (a.length > b.length) return 1;
-		if (b.length > a.length) return -1;
-		for (let i = 0; i < a.length; i++) {
-			let c = new VebleNum(a[i]).cmp(b[i]);
-			if (c == 0) continue;
-			return c;
-		}
-		return 0;
-	}
-
-	static add(a, b) {
-		return new VebleNum(a).add(b);
-	}
-
-	static mul(a, b) {
-		return new VebleNum(a).mul(b);
-	}
-
-	static pow(a, b) {
-		return new VebleNum(a).pow(b);
-	}
-
-	static sumargs() {
-		let a = [...arguments];
-		let sum = new VebleNum(0);
-		for (let i of a) sum = sum.add(new VebleNum(i));
-		return sum;
-	}
-
-	static phi() {
-		return new VebleNum([[...arguments]]);
-	}
-
-	static fromString(str) {
-		str = VebleNum.fixUnary(str);
-		let tokens = Parser.tokenize(str);
-		let rpn = Parser.parse(tokens);
-		let args = [];
-		while (rpn.length > 0) {
-			let token = rpn.shift();
-			if (token.type == Parser.TYPES.LITERAL) {
-				if (token.value == "w") args.push(new VebleNum([[1]]));
-				else {
-					let f = parseFloat(token.value);
-					if (!isNaN(f)) args.push(new VebleNum(f));
-					else throw "Unknown token:" + token.value;
-				}
-			} else if (token.type == Parser.TYPES.OPERATOR) {
-				let a1 = args.pop();
-				let a2 = args.pop();
-				if (token.value == "+") args.push(a2.add(a1));
-				else if (token.value == "*") args.push(a2.mul(a1));
-				else if (token.value == "^") args.push(a2.pow(a1));
-			} else if (token.type == Parser.TYPES.IDENTIFIER) {
-				let a = [];
-				for (let i = 0; i < token.args; i++) a.push(args.pop());
-				if (token.value == "e") args.push(VebleNum.phi(1, a[0]));
-				else if (token.value == "z") args.push(VebleNum.phi(2, a[0]));
-				else if (token.value == "n") args.push(VebleNum.phi(3, a[0]));
-				else if (token.value == "G") args.push(VebleNum.phi(1, 0, a[0]));
-				else if (token.value == "phi" || token.value == "p")
-					args.push(VebleNum.phi(...a.reverse()));
-			}
-		}
-		return args[0];
+class VebleNum extends VNClass {
+	/**
+	 * @param {String} str - An input string to be evaluated
+	 */
+	constructor(str) {
+		super();
+		let v = Parser.fromString(str);
+		for (let i in v) this[i] = v[i];
+		this.setType(v.__proto__.constructor);
 	}
 }
 
@@ -507,6 +40,525 @@ const Ordinal = VebleNum;
 const O = function () {
 	return new Ordinal(...arguments);
 };
+
+class CloneTemplate extends VNClass {}
+
+class Atom extends VNClass {
+	/**
+	 * Class to handle storing independent numbers
+	 * @param {Number} value - The value of the atom
+	 */
+	constructor(value) {
+		super();
+		this.value = value;
+	}
+
+	add(other) {
+		if (typeof other == "number") return new Atom(this.value + other);
+		if (other instanceof Atom) return new Atom(this.value + other.value);
+		return other;
+	}
+
+	mul(other) {
+		if (typeof other == "number") return new Atom(this.value * other);
+		if (other instanceof Atom) return new Atom(this.value * other.value);
+		return other;
+	}
+
+	pow(other) {
+		if (typeof other == "number") return new Atom(this.value ** other);
+		if (other instanceof Atom) return new Atom(this.value ** other.value);
+		return other;
+	}
+
+	toString() {
+		return this.value.toString();
+	}
+	toMixed() {
+		return this.value.toString();
+	}
+	toHTML() {
+		return this.value.toString();
+	}
+}
+
+class Sum extends VNClass {
+	/**
+	 * Class to handle sums of terms, terms are either Product or Phi
+	 * @param {...Product|Phi}
+	 */
+	constructor() {
+		super();
+		this.addends = [...arguments];
+
+		this.standardize();
+	}
+
+	standardize() {
+		for (let i in this.addends) {
+			// Flatten sums into the array
+			if (this.addends[i] instanceof Sum) {
+				this.addends[i] = this.addends[i].addends;
+				this.addends = this.addends.flat();
+			}
+			// Turn Atoms into numbers
+			if (this.addends[i] instanceof Atom) this.addends[i] = this.addends[i].value;
+		}
+
+		// Merge final numbers
+		while (
+			this.terms >= 2 &&
+			typeof this.addends[this.terms - 1] == "number" &&
+			typeof this.addends[this.terms - 2] == "number"
+		)
+			this.addends[this.terms - 2] += this.addends.pop();
+
+		// Convert to an Atom when necessary
+		if (this.addends.length == 1 && typeof this.addends[0] == "number") {
+			this.value = this.addends[0];
+			delete this.addends;
+			this.setType(Atom);
+		}
+
+		// Collect like terms
+		for (let i = 0; i < this.terms - 1; i++) {
+			// If they're equal just merge into a Product
+			if (this.addends[i].cmp(this.addends[i + 1]) == 0) {
+				this.addends[i + 1] = new Product(this.addends[i + 1], 2);
+				this.addends.splice(i--, 1);
+				continue;
+			}
+			// If the current one is a Product...
+			if (this.addends[i] instanceof Product) {
+				// ...and the next one is a Product...
+				if (this.addends[i + 1] instanceof Product) {
+					// ...if they're Products of the same ordinal then merge
+					if (this.addends[i].ord.cmp(this.addends[i + 1].ord) == 0) {
+						this.addends[i + 1] = new Product(
+							this.addends[i + 1].ord,
+							this.addends[i].mult + this.addends[i + 1].mult
+						);
+						this.addends.splice(i--, 1);
+					}
+					continue;
+				}
+				// ...and the next one is not but they are like terms then merge
+				if (this.addends[i].ord.cmp(this.addends[i + 1]) == 0) {
+					this.addends[i + 1] = new Product(this.addends[i + 1], this.addends[i].mult + 1);
+					this.addends.splice(i--, 1);
+				}
+				continue;
+			}
+			// If the current one isn't a Product...
+			if (this.addends[i + 1] instanceof Product) {
+				// ...if they're like terms then merge
+				if (this.addends[i].cmp(this.addends[i + 1].ord) == 0) {
+					this.addends[i + 1] = new Product(this.addends[i + 1].ord, 1 + this.addends[i + 1].mult);
+					this.addends.splice(i--, 1);
+				}
+			}
+		}
+
+		// Remove redundant terms
+		for (let i = 0; i < this.terms - 1; i++) {
+			if (typeof this.addends[i] == "number") {
+				this.addends.splice(i--, 1);
+				continue;
+			}
+			if (this.addends[i].cmp(this.addends[i + 1]) == -1) {
+				if (this.addends[i] instanceof Product) {
+					if (this.addends[i + 1] instanceof Product) {
+						if (this.addends[i].ord.cmp(this.addends[i + 1].ord) == 0) continue;
+						this.addends.splice(i--, 1);
+						continue;
+					}
+					if (this.addends[i].ord.cmp(this.addends[i + 1]) == 0) continue;
+					this.addends.splice(i--, 1);
+					continue;
+				}
+				if (this.addends[i + 1] instanceof Product) {
+					if (this.addends[i].cmp(this.addends[i + 1].ord) == 0) continue;
+					this.addends.splice(i--, 1);
+					continue;
+				}
+				if (this.addends[i].cmp(this.addends[i + 1]) == 0) continue;
+				this.addends.splice(i--, 1);
+				continue;
+			}
+		}
+
+		// Remove outer Sum to simplify single term
+		if (this.terms == 1) {
+			let e = this.addends[0];
+			delete this.addends;
+			for (let i in e) this[i] = e[i];
+			this.setType(e.__proto__.constructor);
+		}
+	}
+
+	cmp(other) {
+		// Standard Sums are always greater than Atoms
+		if (typeof other == "number" || other instanceof Atom) return 1;
+
+		// If other > first term then -1, if other == first term then 1, or other < first term then 1
+		if (other instanceof Product || other instanceof Phi)
+			return this.addends[0].cmp(other) == -1 ? -1 : 1;
+
+		// Compare with other terms
+		for (let i = 0; i < Math.min(this.terms, other.terms); i++) {
+			if (typeof this.addends[i] == "number") {
+				if (typeof other.addends[i] == "number")
+					return this.addends[i] > other.addends[i]
+						? 1
+						: this.addends[i] < other.addends[i]
+						? -1
+						: 0;
+				return -1;
+			}
+			if (typeof other.addends[i] == "number") return 1;
+			let c = this.addends[i].cmp(other.addends[i]);
+			if (c !== 0) return c;
+		}
+		if (this.terms > other.terms) return 1;
+		if (this.terms < other.terms) return -1;
+		return 0;
+	}
+
+	mul(other) {
+		return new Sum(
+			(this.addends[0] instanceof VNClass ? this.addends[0] : new Atom(this.addends[0])).mul(other),
+			...this.addends.slice(1)
+		);
+	}
+
+	pow(other) {
+		let t = this.addends[0];
+		if (typeof t == "number") t = new Atom(t);
+		return t.pow(other);
+	}
+
+	// Count the number of terms
+	get terms() {
+		return this.addends.length;
+	}
+
+	toString() {
+		return this.addends.join("+");
+	}
+	toMixed() {
+		return this.addends
+			.map(e => {
+				if (typeof e == "number") e = new Atom(e);
+				return e.toMixed();
+			})
+			.join("+");
+	}
+	toHTML() {
+		return this.addends
+			.map(e => {
+				if (typeof e == "number") e = new Atom(e);
+				return e.toHTML();
+			})
+			.join("+");
+	}
+
+	[Symbol.iterator]() {
+		return this.addends[Symbol.iterator]();
+	}
+}
+
+class Product extends VNClass {
+	/**
+	 * Class to handle products of an ordinal and a finite value
+	 * @param {Phi} ord - Ordinal being multiplied
+	 * @param {Number} mult - Finite multiplier
+	 */
+	constructor(ord, mult) {
+		super();
+		this.ord = ord;
+		this.mult = mult;
+
+		this.standardize();
+	}
+
+	standardize() {
+		// Turn Atoms into numbers
+		if (this.ord instanceof Atom) this.ord = this.ord.value;
+		if (this.mult instanceof Atom) this.mult = this.mult.value;
+
+		// Convert to a single Atom where possible
+		if (typeof this.ord == "number") {
+			this.value = this.ord * this.mult;
+			delete this.ord;
+			delete this.mult;
+			this.setType(Atom);
+		}
+
+		// Simply x0 and x1
+		if (this.mult == 0) {
+			this.value = 0;
+			delete this.ord;
+			delete this.mult;
+			this.setType(Atom);
+		}
+		if (this.mult == 1) {
+			let o = this.ord;
+			delete this.ord;
+			delete this.mult;
+			for (let i in o) this[i] = o[i];
+			this.setType(o.__proto__.constructor);
+		}
+
+		// Simplify nested products
+		if (this.ord instanceof Product) {
+			this.mult = this.mult * this.ord.mult;
+			this.ord = this.ord.ord;
+		}
+	}
+
+	cmp(other) {
+		// All standard products are greater than finite Atoms
+		if (typeof other == "number" || other instanceof Atom) return 1;
+		// Inverted comparison for Sum
+		if (other instanceof Sum) return -other.cmp(this);
+		// If other > ord then -1, if other == ord then 1, or other < ord then 1
+		if (other instanceof Phi) return this.ord.cmp(other) == -1 ? -1 : 1;
+		// Handle comparison with other Products
+		let oc = this.ord.cmp(other);
+		if (oc !== 0) return oc;
+		return this.mult > other.mult ? 1 : this.mult < other.mult ? -1 : 0;
+	}
+
+	mul(other) {
+		if (other instanceof Atom) other = other.value;
+		if (typeof other == "number") return new Product(this.ord.mul(other), this.mult);
+		return this.ord.mul(other);
+	}
+
+	pow(other) {
+		return new Product(this.ord.pow(other), this.mul);
+	}
+
+	toString() {
+		return Parser.handleParens(this.ord.toString()) + "*" + this.mult.toString();
+	}
+	toMixed() {
+		return Parser.handleParens(this.ord.toMixed()) + "*" + this.mult.toString();
+	}
+	toHTML() {
+		return Parser.handleParens(this.ord.toHTML()) + "*" + this.mult.toString();
+	}
+}
+
+class Phi extends VNClass {
+	/**
+	 * Class to handle sums of terms, terms are either Sum, Product or Phi
+	 * @param {...Sum|Product|Phi}
+	 */
+	constructor() {
+		super();
+		this.args = [...arguments];
+
+		this.standardize();
+	}
+
+	static noStandard() {
+		let t = new Phi();
+		t.args = [...arguments];
+		return t;
+	}
+
+	standardize() {
+		// Convert Atoms to numbers
+		for (let i in this.args) if (this.args[i] instanceof Atom) this.args[i] = this.args[i].value;
+
+		// Remove redundant 0s
+		while (this.args[0] == 0 && this.args.length > 1) this.args.shift();
+
+		// Convert phi(0) to 1
+		if (this.args[0] == 0) {
+			this.value = 1;
+			delete this.args;
+			this.setType(Atom);
+		}
+
+		// Deal with fixed points
+		for (let i in this.args) {
+			if (!(this.args[i] instanceof Phi)) continue;
+			let a = [...this.args];
+			a[i] = "_";
+			if (this.args[i].isFixedPoint(a)) this.args = this.args[i].args;
+		}
+	}
+
+	cmp(other) {
+		// Standard Phis are always greater than Atoms
+		if (typeof other == "number" || other instanceof Atom) return 1;
+		// Inverted comparisons for Sum and Product
+		if (other instanceof Sum || other instanceof Product) return -other.cmp(this);
+		/**
+		 * the basic comparison algorithm alone is just
+		 * φ(X) > φ(Y) iff the sum of args in X is greater than
+		 * φ(Y) or (X is lexicographically greater than Y and φ(X)
+		 * is greater than the sum of args in Y) - Panda
+		 */
+		let sumthis = new Sum(...this.args);
+		let sumother = new Sum(...other.args);
+		if (
+			(sumthis instanceof Sum && sumthis.cmp(other) == 1) ||
+			((sumother instanceof Atom || sumother.cmp(this) == -1) && this.lexcmp(other) == 1)
+		)
+			return 1;
+		if (
+			(sumother instanceof Sum && sumother.cmp(this) == 1) ||
+			((sumother instanceof Atom || sumthis.cmp(other) == -1) && other.lexcmp(this) == 1)
+		)
+			return -1;
+		return 0;
+	}
+
+	isFixedPoint(a) {
+		// Args like [1,0,0,'_',0] for fixed point of a -> phi(1,0,0,a,0)
+		let index = a.indexOf("_");
+		for (let i = index + 1; i < a.length; i++) if (a[i] !== 0) return false;
+		if (a.length > this.args.length) return false;
+		if (this.args.length > a.length) return true;
+		for (let i in a) {
+			if (a[i] == "_") break;
+			let cmp;
+			if (this.args[i] instanceof VNClass) {
+				cmp = -this.args[i].cmp(a[i] instanceof VNClass ? a[i] : new Atom(a[i]));
+			} else {
+				if (a[i] instanceof VNClass) {
+					cmp = -a[i].cmp(this.args[i] instanceof VNClass ? this.args[i] : new Atom(this.args[i]));
+				} else cmp = this.args[i] > a[i] ? 1 : this.args[i] < a[i] ? -1 : 0;
+			}
+			if (cmp == -1) return false;
+			if (cmp == 1) return true;
+		}
+		return false;
+	}
+
+	lexcmp(other) {
+		// In lexicographical comparison, longer = bigger
+		if (this.args.length > other.args.length) return 1;
+		if (this.args.length < other.args.length) return -1;
+		// Iterate to check term by term
+		for (let i = 0; i < this.args.length; i++) {
+			// Compare numbers
+			if (typeof this.args[i] == "number") {
+				if (typeof other.args[i] == "number") {
+					if (this.args[i] == other.args[i]) continue;
+					return this.args[i] > other.args[i] ? 1 : this.args[i] < other.args[i] ? -1 : 0;
+				}
+				return -1;
+			}
+			if (typeof other.args[i] == "number") return 1;
+			// Compare infinite terms
+			let c = this.args[i].cmp(other.args[i]);
+			if (c !== 0) return c;
+		}
+		// Return 0 if they're equal
+		return 0;
+	}
+
+	mul(other) {
+		if (other instanceof Atom) other = other.value;
+		if (typeof other == "number") return new Product(new Phi(...this.args), other);
+		if (other instanceof Sum) return new Sum(...other.addends.map(e => this.mul(e)));
+		if (other instanceof Product) return new Product(this.mul(other.ord), other.mult);
+		if (this.args.length == 1) {
+			if (other.args.length == 1) {
+				if (typeof this.args[0] == "number") {
+					if (typeof other.args[0] == "number") return new Phi(this.args[0] + other.args[0]);
+					return new Phi(...other.clone().args);
+				}
+				let o = this.args[0];
+				if (typeof o == "number") o = new Atom(o);
+				return new Phi(o.add(other.args[0]));
+			}
+			return other.clone();
+		}
+		let t = this;
+		if (this.args.length > 1) t = Phi.noStandard(this);
+		if (other.args.length > 1) other = Phi.noStandard(other);
+		if (typeof t.args[0] == "number") t.args[0] = new Atom(t.args[0]);
+		if (typeof other.args[0] == "number") other.args[0] = new Atom(other.args[0]);
+		return new Phi(t.args[0].add(other.args[0]));
+	}
+
+	pow(other) {
+		if (other instanceof Atom) other = other.value;
+		let t = this;
+		if (this.args.length > 1) t = Phi.noStandard(this);
+		if (typeof t.args[0] == "number") t.args[0] = new Atom(t.args[0]);
+		t.args[0] = t.args[0].mul(other);
+		t.standardize();
+		return t;
+	}
+
+	toString() {
+		return "phi(" + this.args.join(",") + ")";
+	}
+
+	toMixed() {
+		let t = this.clone();
+		for (let i in t.args) if (typeof t.args[i] == "number") t.args[i] = new Atom(t.args[i]);
+		if (t.args.length == 1) {
+			if (t.args[0] == 1) return "w";
+			let s = Parser.handleParens(t.args[0].toMixed());
+			return `w^${s}`;
+		}
+		if (t.args.length == 2 && t.args[0] == 1) {
+			let s = Parser.handleParens(t.args[1].toMixed(), true);
+			return `e${s}`;
+		}
+		if (t.args.length == 2 && t.args[0] == 2) {
+			let s = Parser.handleParens(t.args[1].toMixed(), true);
+			return `z${s}`;
+		}
+		if (t.args.length == 2 && t.args[0] == 3) {
+			let s = Parser.handleParens(t.args[1].toMixed(), true);
+			return `n${s}`;
+		}
+		if (t.args.length == 3 && t.args[0] == 1 && t.args[1] == 0) {
+			let s = Parser.handleParens(t.args[2].toMixed(), true);
+			return `G${s}`;
+		}
+		return "phi(" + t.args.map(e => e?.toMixed()) + ")";
+	}
+
+	toHTML() {
+		let t = this.clone();
+		for (let i in t.args) if (typeof t.args[i] == "number") t.args[i] = new Atom(t.args[i]);
+		if (t.args.length == 1) {
+			if (t.args[0] == 1) return "&omega;";
+			let s = t.args[0].toHTML();
+			return `&omega;<sup>${s}</sup>`;
+		}
+		if (t.args.length == 2 && t.args[0] == 1) {
+			let s = t.args[1].toHTML();
+			return `&epsilon;<sub>${s}</sub>`;
+		}
+		if (t.args.length == 2 && t.args[0] == 2) {
+			let s = t.args[1].HtoTML();
+			return `&zeta;<sub>${s}</sub>`;
+		}
+		if (t.args.length == 2 && t.args[0] == 3) {
+			let s = t.args[1].toHTML();
+			return `&eta;<sub>${s}</sub>`;
+		}
+		if (t.args.length == 3 && t.args[0] == 1 && t.args[1] == 0) {
+			let s = t.args[2].HTtoML();
+			return `&Gamma;<sub>${s}</sub>`;
+		}
+		return "&phi;(" + t.args.map(e => e?.toMixed()) + ")";
+	}
+
+	[Symbol.iterator]() {
+		return this.addends[Symbol.iterator]();
+	}
+}
 
 class Parser {
 	static Token = class {
@@ -636,7 +688,6 @@ class Parser {
 					output.push(stack.pop());
 				stack.push(token);
 			}
-			// console.log(output, stack, were_values, arg_count);
 		}
 		while (stack.length > 0) {
 			let op = stack.pop();
@@ -644,5 +695,57 @@ class Parser {
 			output.push(op);
 		}
 		return output;
+	}
+
+	static fixUnary(str) {
+		return str.replace(/(e|z|n|G)((\d|w)+)/g, function (match, c1, c2) {
+			return `${c1}(${c2})`;
+		});
+	}
+
+	static fromString(str) {
+		str = Parser.fixUnary(str);
+		let tokens = Parser.tokenize(str);
+		let rpn = Parser.parse(tokens);
+		let args = [];
+		while (rpn.length > 0) {
+			let token = rpn.shift();
+			if (token.type == Parser.TYPES.LITERAL) {
+				if (token.value == "w") args.push(new Phi(1));
+				else {
+					let f = parseFloat(token.value);
+					if (!isNaN(f)) args.push(new Atom(f));
+					else throw "Unknown token:" + token.value;
+				}
+			} else if (token.type == Parser.TYPES.OPERATOR) {
+				let a1 = args.pop();
+				let a2 = args.pop();
+				if (token.value == "+") args.push(a2.add(a1));
+				else if (token.value == "*") args.push(a2.mul(a1));
+				else if (token.value == "^") args.push(a2.pow(a1));
+			} else if (token.type == Parser.TYPES.IDENTIFIER) {
+				let a = [];
+				for (let i = 0; i < token.args; i++) a.push(args.pop());
+				if (token.value == "e") args.push(new Phi(1, a[0]));
+				else if (token.value == "z") args.push(new Phi(2, a[0]));
+				else if (token.value == "n") args.push(new Phi(3, a[0]));
+				else if (token.value == "G") args.push(new Phi(1, 0, a[0]));
+				else if (token.value == "phi" || token.value == "p") args.push(new Phi(...a.reverse()));
+			}
+		}
+		return args[0];
+	}
+
+	static handleParens(str, sub = false) {
+		if (Parser.needsParens(str, sub)) return `(${str})`;
+		return str;
+	}
+
+	static needsParens(str, sub = false) {
+		let t = Parser.parse(Parser.tokenize(Parser.fixUnary(str)))
+			.map(e => e.value)
+			.join("");
+		if (t.endsWith("+") || t.endsWith("*") || (sub && t.endsWith("^"))) return true;
+		return false;
 	}
 }

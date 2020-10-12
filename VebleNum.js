@@ -762,9 +762,15 @@ class Parser {
 	}
 
 	static fixUnary(str) {
-		return str.replace(/(e|z|n|G)((\d|w)+)/g, function (match, c1, c2) {
-			return `${c1}(${c2})`;
-		});
+		while (/(e|z|n|G)((\w+\(.+\))|[^\+\*\^\(][^\+\*\^]*[^\+\*\^\)]?)/g.test(str))
+			str = str.replace(/(e|z|n|G)((\w+\(.+\))|[^\+\*\^\(][^\+\*\^]*[^\+\*\^\)]?)/g, function (
+				match,
+				c1,
+				c2
+			) {
+				return `${c1}(${c2})`;
+			});
+		return str;
 	}
 
 	static fromString(str) {

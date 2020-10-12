@@ -395,7 +395,9 @@ class Product extends VNClass {
 		if (other instanceof Product) return this.pow(other.ord).pow(other.mult);
 		if (other == 1 || other.value == 1) return this.clone();
 		if (other == 0 || other.value == 0) return new Atom(1);
-		return new Product(this.ord.pow(other), this.mult);
+		if (typeof other == "number") other = new Atom(other);
+		if (other instanceof Atom) return new Product(this.ord.pow(other), this.mult);
+		return this.ord.pow(other);
 	}
 
 	toString() {

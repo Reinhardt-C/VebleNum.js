@@ -18,6 +18,7 @@ class VNClass {
 			else obj[i] = this[i];
 		}
 		obj.setType(this.__proto__.constructor);
+		if (!obj instanceof Atom) obj.standardize();
 		return obj;
 	}
 
@@ -52,7 +53,7 @@ class Atom extends VNClass {
 	 */
 	constructor(value) {
 		super();
-		this.value = value;
+		this.value = value.value !== undefined ? value.value : value;
 	}
 
 	add(other) {
@@ -66,15 +67,28 @@ class Atom extends VNClass {
 		if (other instanceof Atom) return new Atom(this.value * other.value);
 		if (this.value == 1) return other.clone();
 		if (this.value == 0) return new Atom(0);
-		return other;
+		return other.clone();
 	}
 
 	pow(other) {
+		if (other instanceof Sum) {
+			let p = new Atom(1);
+			for (let i of other.addends) p = p.mul(this.pow(i));
+			return p;
+		}
+		if (other instanceof Product) return this.pow(other.ord).pow(other.mult);
+		if (other instanceof Phi && other.args.length == 1 && new Atom(1).cmp(other.args[0]) == -1) {
+			if (new Phi(1).cmp(other.args[0]) < 1) return new Phi(other.clone());
+			let o = other.clone();
+			if (o.args[0] instanceof Atom) o.args[0] = o.args[0].value;
+			o.args[0]--;
+			return new Phi(o);
+		}
 		if (typeof other == "number") return new Atom(this.value ** other);
 		if (other instanceof Atom) return new Atom(this.value ** other.value);
 		if (this.value == 1) return new Atom(1);
 		if (this.value == 0) return new Atom(0);
-		return other;
+		return other.clone();
 	}
 
 	cmp(other) {
@@ -109,6 +123,8 @@ class Sum extends VNClass {
 
 	standardize() {
 		for (let i in this.addends) {
+			if (this.addends[i] instanceof VNClass && !(this.addends[i] instanceof Atom))
+				this.addends[i].standardize();
 			// Flatten sums into the array
 			if (this.addends[i] instanceof Sum) {
 				this.addends[i] = this.addends[i].addends;
@@ -249,6 +265,12 @@ class Sum extends VNClass {
 	}
 
 	pow(other) {
+		if (other instanceof Sum) {
+			let p = new Atom(1);
+			for (let i of other.addends) p = p.mul(this.pow(i));
+			return p;
+		}
+		if (other instanceof Product) return this.pow(other.ord).pow(other.mult);
 		if (other == 1 || other.value == 1) return this.clone();
 		if (other == 0 || other.value == 0) return new Atom(1);
 		if (typeof other == "number") other = new Atom(other);
@@ -365,6 +387,12 @@ class Product extends VNClass {
 	}
 
 	pow(other) {
+		if (other instanceof Sum) {
+			let p = new Atom(1);
+			for (let i of other.addends) p = p.mul(this.pow(i));
+			return p;
+		}
+		if (other instanceof Product) return this.pow(other.ord).pow(other.mult);
 		if (other == 1 || other.value == 1) return this.clone();
 		if (other == 0 || other.value == 0) return new Atom(1);
 		return new Product(this.ord.pow(other), this.mul);
@@ -398,29 +426,34 @@ class Phi extends VNClass {
 	static noStandard() {
 		let t = new Phi();
 		t.args = [...arguments];
+		t.standardize(true);
 		return t;
 	}
 
-	standardize() {
+	standardize(ns = false) {
 		// Convert Atoms to numbers
 		for (let i in this.args) if (this.args[i] instanceof Atom) this.args[i] = this.args[i].value;
 
-		// Remove redundant 0s
-		while (this.args[0] == 0 && this.args.length > 1) this.args.shift();
+		if (!ns) {
+			// Remove redundant 0s
+			while (this.args[0] == 0 && this.args.length > 1) this.args.shift();
 
-		// Convert phi(0) to 1
-		if (this.args[0] == 0) {
-			this.value = 1;
-			delete this.args;
-			this.setType(Atom);
-		}
+			// Convert phi(0) to 1
+			if (this.args[0] == 0) {
+				this.value = 1;
+				delete this.args;
+				this.setType(Atom);
+			}
 
-		// Deal with fixed points
-		for (let i in this.args) {
-			if (!(this.args[i] instanceof Phi)) continue;
-			let a = [...this.args];
-			a[i] = "_";
-			if (this.args[i].isFixedPoint(a)) this.args = this.args[i].args;
+			// Deal with fixed points
+			for (let i in this.args) {
+				if (!(this.args[i] instanceof Phi)) continue;
+				let a = [...this.args];
+				a[i] = "_";
+				if (this.args[i].isFixedPoint(a)) this.args = this.args[i].args;
+			}
+
+			for (let i of this.args) if (i instanceof VNClass && !(i instanceof Atom)) i.standardize();
 		}
 	}
 
@@ -460,7 +493,7 @@ class Phi extends VNClass {
 			if (a[i] == "_") break;
 			let cmp;
 			if (this.args[i] instanceof VNClass) {
-				cmp = -this.args[i].cmp(a[i] instanceof VNClass ? a[i] : new Atom(a[i]));
+				cmp = this.args[i].cmp(a[i] instanceof VNClass ? a[i] : new Atom(a[i]));
 			} else {
 				if (a[i] instanceof VNClass) {
 					cmp = -a[i].cmp(this.args[i] instanceof VNClass ? this.args[i] : new Atom(this.args[i]));
@@ -511,6 +544,12 @@ class Phi extends VNClass {
 	}
 
 	pow(other) {
+		if (other instanceof Sum) {
+			let p = new Atom(1);
+			for (let i of other.addends) p = p.mul(this.pow(i));
+			return p;
+		}
+		if (other instanceof Product) return this.pow(other.ord).pow(other.mult);
 		if (other == 1 || other.value == 1) return this.clone();
 		if (other == 0 || other.value == 0) return new Atom(1);
 		if (other instanceof Atom) other = other.value;
@@ -566,7 +605,7 @@ class Phi extends VNClass {
 			return `&epsilon;<sub>${s}</sub>`;
 		}
 		if (t.args.length == 2 && t.args[0] == 2) {
-			let s = t.args[1].HtoTML();
+			let s = t.args[1].toHTML();
 			return `&zeta;<sub>${s}</sub>`;
 		}
 		if (t.args.length == 2 && t.args[0] == 3) {

@@ -25,24 +25,92 @@ class VNClass {
 	add(other) {
 		return new Sum(this, other);
 	}
-}
 
-class VebleNum extends VNClass {
-	/**
-	 * @param {String} str - An input string to be evaluated
-	 */
-	constructor(str) {
-		super();
-		let v = Parser.fromString(str.replace(/\s/g, ""));
-		for (let i in v) this[i] = v[i];
-		this.setType(v.__proto__.constructor);
+	isEpsilon() {
+		return this instanceof Phi && this.args.length >= 2;
+	}
+
+	isZeta() {
+		return (
+			this instanceof Phi &&
+			(this.args.length >= 3 || (this.args.length == 2 && new Atom(2).cmp(this.args[0]) < 1))
+		);
+	}
+
+	isEta() {
+		return (
+			this instanceof Phi &&
+			(this.args.length >= 3 || (this.args.length == 2 && new Atom(3).cmp(this.args[0]) < 1))
+		);
+	}
+
+	isGamma() {
+		return this instanceof Phi && this.args.length >= 3;
+	}
+
+	static add(a, b) {
+		if (!(a instanceof VNClass)) {
+			if (typeof a == "number") a = new Atom(a);
+			else a = new VebleNum(a);
+		}
+		if (!(b instanceof VNClass)) {
+			if (typeof b == "number") b = new Atom(b);
+			else b = new VebleNum(b);
+		}
+		return a.add(b);
+	}
+	static mul(a, b) {
+		if (!(a instanceof VNClass)) {
+			if (typeof a == "number") a = new Atom(a);
+			else a = new VebleNum(a);
+		}
+		if (!(b instanceof VNClass)) {
+			if (typeof b == "number") b = new Atom(b);
+			else b = new VebleNum(b);
+		}
+		return a.mul(b);
+	}
+	static pow(a, b) {
+		if (!(a instanceof VNClass)) {
+			if (typeof a == "number") a = new Atom(a);
+			else a = new VebleNum(a);
+		}
+		if (!(b instanceof VNClass)) {
+			if (typeof b == "number") b = new Atom(b);
+			else b = new VebleNum(b);
+		}
+		return a.pow(b);
+	}
+
+	static epsilon(n) {
+		if (!(n instanceof VNClass)) {
+			if (typeof n == "number") n = new Atom(n);
+			else n = new VebleNum(n);
+		}
+		return new Phi(1, n);
+	}
+	static zeta(n) {
+		if (!(n instanceof VNClass)) {
+			if (typeof n == "number") n = new Atom(n);
+			else n = new VebleNum(n);
+		}
+		return new Phi(2, n);
+	}
+	static eta(n) {
+		if (!(n instanceof VNClass)) {
+			if (typeof n == "number") n = new Atom(n);
+			else n = new VebleNum(n);
+		}
+		return new Phi(3, n);
+	}
+	static Gamma(n) {
+		if (!(n instanceof VNClass)) {
+			if (typeof n == "number") n = new Atom(n);
+			else n = new VebleNum(n);
+		}
+		return new Phi(1, 0, n);
 	}
 }
-
-const Ordinal = VebleNum;
-const O = function () {
-	return new Ordinal(...arguments);
-};
 
 class CloneTemplate extends VNClass {}
 
@@ -455,7 +523,9 @@ class Phi extends VNClass {
 				if (this.args[i].isFixedPoint(a)) this.args = this.args[i].args;
 			}
 
-			for (let i of this.args) if (i instanceof VNClass && !(i instanceof Atom)) i.standardize();
+			for (let i in this.args)
+				if (this.args[i] instanceof VNClass && !(this.args[i] instanceof Atom))
+					this.args[i].standardize();
 		}
 	}
 
@@ -821,3 +891,38 @@ class Parser {
 		return false;
 	}
 }
+
+class VebleNum extends VNClass {
+	/**
+	 * @param {String} str - An input string to be evaluated
+	 */
+	constructor(str) {
+		super();
+		let v = Parser.fromString(str.replace(/\s/g, ""));
+		for (let i in v) this[i] = v[i];
+		this.setType(v.__proto__.constructor);
+	}
+
+	static zero = new Atom(0);
+	static one = new Atom(1);
+	static w = new Phi(1);
+	static omega = new Phi(1);
+	static Least_Transfinite_Ordinal = new Phi(1);
+	static e0 = new Phi(1, 0);
+	static epsilon0 = new Phi(1, 0);
+	static Small_Cantor_Ordinal = new Phi(1, 0);
+	static z0 = new Phi(2, 0);
+	static zeta0 = new Phi(2, 0);
+	static Cantor_Ordinal = new Phi(2, 0);
+	static n0 = new Phi(3, 0);
+	static eta0 = new Phi(3, 0);
+	static G0 = new Phi(1, 0, 0);
+	static Gamma0 = new Phi(1, 0, 0);
+	static Feferman_Schutte_Ordinal = new Phi(1, 0, 0);
+	static Ackermann = new Phi(1, 0, 0, 0);
+}
+
+const Ordinal = VebleNum;
+const O = function () {
+	return new Ordinal(...arguments);
+};

@@ -1,22 +1,5 @@
 "use strict";
 
-Object.prototype.clone = function () {
-	let c = {};
-	for (let i in this) {
-		if (i == "clone") continue;
-		c[i] = this[i] instanceof Object ? this[i].clone() : this[i];
-	}
-	return c;
-};
-Array.prototype.clone = function () {
-	let c = [];
-	for (let i in this) {
-		if (i == "clone") continue;
-		c[i] = this[i] instanceof Object ? this[i].clone() : this[i];
-	}
-	return c;
-};
-
 class VNClass {
 	/**
 	 * Set the type of this instance
@@ -28,10 +11,30 @@ class VNClass {
 
 	static MAX_TERMS = 200;
 
+	static clone(input) {
+		if (input instanceof VNClass) return input.clone();
+		if (input instanceof Array) {
+			let c = [];
+			for (let i in input) {
+				if (i == "clone") continue;
+				c[i] = input[i] instanceof Object ? VNClass.clone(input[i]) : input[i];
+			}
+			return c;
+		}
+		if (input instanceof Object) {
+			let c = {};
+			for (let i in input) {
+				if (i == "clone") continue;
+				c[i] = input[i] instanceof Object ? VNClass.clone(input[i]) : input[i];
+			}
+			return c;
+		}
+	}
+
 	clone() {
 		let obj = new CloneTemplate();
 		for (let i in this) {
-			if (this[i] instanceof Object) obj[i] = this[i].clone();
+			if (this[i] instanceof Object) obj[i] = VNClass.clone(this[i]);
 			else obj[i] = this[i];
 		}
 		obj.setType(this.__proto__.constructor);
@@ -910,12 +913,11 @@ class Parser {
 }
 
 class VebleNum extends VNClass {
-	/**
-	 * @param {String} str - An input string to be evaluated
-	 */
-	constructor(str) {
+	constructor(input) {
 		super();
-		let v = Parser.fromString(str.replace(/\s/g, ""));
+		if (typeof input == "number") return new Atom(input);
+		if (input instanceof VNClass) return input.clone();
+		let v = Parser.fromString(input.replace(/\s/g, ""));
 		for (let i in v) this[i] = v[i];
 		this.setType(v.__proto__.constructor);
 	}

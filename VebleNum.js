@@ -1,5 +1,22 @@
 "use strict";
 
+Object.prototype.clone = function () {
+	let c = {};
+	for (let i in this) {
+		if (i == "clone") continue;
+		c[i] = this[i] instanceof Object ? this[i].clone() : this[i];
+	}
+	return c;
+};
+Array.prototype.clone = function () {
+	let c = [];
+	for (let i in this) {
+		if (i == "clone") continue;
+		c[i] = this[i] instanceof Object ? this[i].clone() : this[i];
+	}
+	return c;
+};
+
 class VNClass {
 	/**
 	 * Set the type of this instance
@@ -14,7 +31,7 @@ class VNClass {
 	clone() {
 		let obj = new CloneTemplate();
 		for (let i in this) {
-			if (this[i] instanceof VNClass) obj[i] = this[i].clone();
+			if (this[i] instanceof Object) obj[i] = this[i].clone();
 			else obj[i] = this[i];
 		}
 		obj.setType(this.__proto__.constructor);
@@ -607,7 +624,7 @@ class Phi extends VNClass {
 		if (typeof other == "number") return new Product(new Phi(...this.args), other);
 		if (other instanceof Sum) return new Sum(...other.addends.map(e => this.mul(e)));
 		if (other instanceof Product) return new Product(this.mul(other.ord), other.mult);
-		let t = this;
+		let t = this.clone();
 		if (this.args.length > 1) t = Phi.noStandard(this);
 		if (other.args.length > 1) other = Phi.noStandard(other);
 		if (typeof t.args[0] == "number") t.args[0] = new Atom(t.args[0]);
@@ -625,8 +642,8 @@ class Phi extends VNClass {
 		if (other == 1 || other.value == 1) return this.clone();
 		if (other == 0 || other.value == 0) return new Atom(1);
 		if (other instanceof Atom) other = other.value;
-		let t = this;
-		if (this.args.length > 1) t = Phi.noStandard(this);
+		let t = this.clone();
+		if (this.args.length > 1) t = Phi.noStandard(this.clone());
 		if (typeof t.args[0] == "number") t.args[0] = new Atom(t.args[0]);
 		t.args[0] = t.args[0].mul(other);
 		t.standardize();

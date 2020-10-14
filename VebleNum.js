@@ -102,6 +102,14 @@ class VNClass {
 		return a.pow(b);
 	}
 
+	static cmp(a, b) {
+		if (!(a instanceof VNClass)) {
+			if (typeof a == "number") a = new Atom(a);
+			else a = new VebleNum(a);
+		}
+		return a.cmp(b);
+	}
+
 	static epsilon(n) {
 		if (!(n instanceof VNClass)) {
 			if (typeof n == "number") n = new Atom(n);
@@ -130,6 +138,25 @@ class VNClass {
 		}
 		return new Phi(1, 0, n);
 	}
+
+	gt(other) {
+		return this.cmp(other) == 1;
+	}
+	lt(other) {
+		return this.cmp(other) == -1;
+	}
+	gte(other) {
+		return this.cmp(other) > -1;
+	}
+	lte(other) {
+		return this.cmp(other) > 1;
+	}
+	eq(other) {
+		return this.cmp(other) == 0;
+	}
+	neq(other) {
+		return this.cmp(other) !== 0;
+	}
 }
 
 class CloneTemplate extends VNClass {}
@@ -145,12 +172,14 @@ class Atom extends VNClass {
 	}
 
 	add(other) {
+		if (typeof other == "string") other = Parser.fromString(other);
 		if (typeof other == "number") return new Atom(this.value + other);
 		if (other instanceof Atom) return new Atom(this.value + other.value);
 		return other;
 	}
 
 	mul(other) {
+		if (typeof other == "string") other = Parser.fromString(other);
 		if (typeof other == "number") return new Atom(this.value * other);
 		if (other instanceof Atom) return new Atom(this.value * other.value);
 		if (this.value == 1) return other.clone();
@@ -159,6 +188,7 @@ class Atom extends VNClass {
 	}
 
 	pow(other) {
+		if (typeof other == "string") other = Parser.fromString(other);
 		if (other instanceof Sum) {
 			let p = new Atom(1);
 			for (let i of other.addends) p = p.mul(this.pow(i));
@@ -180,6 +210,7 @@ class Atom extends VNClass {
 	}
 
 	cmp(other) {
+		if (typeof other == "string") other = Parser.fromString(other);
 		if (typeof other == "number") return this.value > other ? 1 : this.value < other ? -1 : 0;
 		if (other instanceof Atom)
 			return this.value > other.value ? 1 : this.value < other.value ? -1 : 0;
@@ -314,6 +345,7 @@ class Sum extends VNClass {
 	}
 
 	cmp(other) {
+		if (typeof other == "string") other = Parser.fromString(other);
 		// Standard Sums are always greater than Atoms
 		if (typeof other == "number" || other instanceof Atom) return 1;
 
@@ -342,6 +374,7 @@ class Sum extends VNClass {
 	}
 
 	mul(other) {
+		if (typeof other == "string") other = Parser.fromString(other);
 		if (other == 1 || other.value == 1) return this.clone();
 		if (other == 0 || other.value == 0) return new Atom(0);
 		if (typeof other == "number") other = new Atom(other);
@@ -353,6 +386,7 @@ class Sum extends VNClass {
 	}
 
 	pow(other) {
+		if (typeof other == "string") other = Parser.fromString(other);
 		if (other instanceof Sum) {
 			let p = new Atom(1);
 			for (let i of other.addends) p = p.mul(this.pow(i));
@@ -453,6 +487,7 @@ class Product extends VNClass {
 	}
 
 	cmp(other) {
+		if (typeof other == "string") other = Parser.fromString(other);
 		// All standard products are greater than finite Atoms
 		if (typeof other == "number" || other instanceof Atom) return 1;
 		// Inverted comparison for Sum
@@ -466,6 +501,7 @@ class Product extends VNClass {
 	}
 
 	mul(other) {
+		if (typeof other == "string") other = Parser.fromString(other);
 		if (other == 1 || other.value == 1) return this.clone();
 		if (other == 0 || other.value == 0) return new Atom(0);
 		if (other instanceof Atom) other = other.value;
@@ -475,6 +511,7 @@ class Product extends VNClass {
 	}
 
 	pow(other) {
+		if (typeof other == "string") other = Parser.fromString(other);
 		if (other instanceof Sum) {
 			let p = new Atom(1);
 			for (let i of other.addends) p = p.mul(this.pow(i));
@@ -550,6 +587,7 @@ class Phi extends VNClass {
 	}
 
 	cmp(other) {
+		if (typeof other == "string") other = Parser.fromString(other);
 		// Standard Phis are always greater than Atoms
 		if (typeof other == "number" || other instanceof Atom) return 1;
 		// Inverted comparisons for Sum and Product
@@ -598,6 +636,7 @@ class Phi extends VNClass {
 	}
 
 	lexcmp(other) {
+		if (typeof other == "string") other = Parser.fromString(other);
 		// In lexicographical comparison, longer = bigger
 		if (this.args.length > other.args.length) return 1;
 		if (this.args.length < other.args.length) return -1;
@@ -621,6 +660,7 @@ class Phi extends VNClass {
 	}
 
 	mul(other) {
+		if (typeof other == "string") other = Parser.fromString(other);
 		if (other == 1 || other.value == 1) return this.clone();
 		if (other == 0 || other.value == 0) return new Atom(0);
 		if (other instanceof Atom) other = other.value;
@@ -636,6 +676,7 @@ class Phi extends VNClass {
 	}
 
 	pow(other) {
+		if (typeof other == "string") other = Parser.fromString(other);
 		if (other instanceof Sum) {
 			let p = new Atom(1);
 			for (let i of other.addends) p = p.mul(this.pow(i));

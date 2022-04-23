@@ -17,7 +17,10 @@ class VNClass {
 			let c = [];
 			for (let i in input) {
 				if (i == "clone") continue;
-				c[i] = input[i] instanceof Object ? VNClass.clone(input[i]) : input[i];
+				c[i] =
+					input[i] instanceof Object
+						? VNClass.clone(input[i])
+						: input[i];
 			}
 			return c;
 		}
@@ -25,7 +28,10 @@ class VNClass {
 			let c = {};
 			for (let i in input) {
 				if (i == "clone") continue;
-				c[i] = input[i] instanceof Object ? VNClass.clone(input[i]) : input[i];
+				c[i] =
+					input[i] instanceof Object
+						? VNClass.clone(input[i])
+						: input[i];
 			}
 			return c;
 		}
@@ -53,14 +59,16 @@ class VNClass {
 	isZeta() {
 		return (
 			this instanceof Phi &&
-			(this.args.length >= 3 || (this.args.length == 2 && new Atom(2).cmp(this.args[0]) < 1))
+			(this.args.length >= 3 ||
+				(this.args.length == 2 && new Atom(2).cmp(this.args[0]) < 1))
 		);
 	}
 
 	isEta() {
 		return (
 			this instanceof Phi &&
-			(this.args.length >= 3 || (this.args.length == 2 && new Atom(3).cmp(this.args[0]) < 1))
+			(this.args.length >= 3 ||
+				(this.args.length == 2 && new Atom(3).cmp(this.args[0]) < 1))
 		);
 	}
 
@@ -194,9 +202,15 @@ class Atom extends VNClass {
 			for (let i of other.addends) p = p.mul(this.pow(i));
 			return p;
 		}
-		if (other instanceof Product) return this.pow(other.ord).pow(other.mult);
-		if (other instanceof Phi && other.args.length == 1 && new Atom(1).cmp(other.args[0]) == -1) {
-			if (new Phi(1).cmp(other.args[0]) < 1) return new Phi(other.clone());
+		if (other instanceof Product)
+			return this.pow(other.ord).pow(other.mult);
+		if (
+			other instanceof Phi &&
+			other.args.length == 1 &&
+			new Atom(1).cmp(other.args[0]) == -1
+		) {
+			if (new Phi(1).cmp(other.args[0]) < 1)
+				return new Phi(other.clone());
 			let o = other.clone();
 			if (o.args[0] instanceof Atom) o.args[0] = o.args[0].value;
 			o.args[0]--;
@@ -211,9 +225,14 @@ class Atom extends VNClass {
 
 	cmp(other) {
 		if (typeof other == "string") other = Parser.fromString(other);
-		if (typeof other == "number") return this.value > other ? 1 : this.value < other ? -1 : 0;
+		if (typeof other == "number")
+			return this.value > other ? 1 : this.value < other ? -1 : 0;
 		if (other instanceof Atom)
-			return this.value > other.value ? 1 : this.value < other.value ? -1 : 0;
+			return this.value > other.value
+				? 1
+				: this.value < other.value
+				? -1
+				: 0;
 		return -1;
 	}
 
@@ -242,7 +261,10 @@ class Sum extends VNClass {
 
 	standardize() {
 		for (let i in this.addends) {
-			if (this.addends[i] instanceof VNClass && !(this.addends[i] instanceof Atom))
+			if (
+				this.addends[i] instanceof VNClass &&
+				!(this.addends[i] instanceof Atom)
+			)
 				this.addends[i].standardize();
 			// Flatten sums into the array
 			if (this.addends[i] instanceof Sum) {
@@ -250,7 +272,8 @@ class Sum extends VNClass {
 				this.addends = this.addends.flat();
 			}
 			// Turn Atoms into numbers
-			if (this.addends[i] instanceof Atom) this.addends[i] = this.addends[i].value;
+			if (this.addends[i] instanceof Atom)
+				this.addends[i] = this.addends[i].value;
 		}
 
 		// Merge final numbers
@@ -277,16 +300,22 @@ class Sum extends VNClass {
 			if (this.addends[i].cmp(this.addends[i + 1]) == -1) {
 				if (this.addends[i] instanceof Product) {
 					if (this.addends[i + 1] instanceof Product) {
-						if (this.addends[i].ord.cmp(this.addends[i + 1].ord) == 0) continue;
+						if (
+							this.addends[i].ord.cmp(this.addends[i + 1].ord) ==
+							0
+						)
+							continue;
 						this.addends.splice(i--, 1);
 						continue;
 					}
-					if (this.addends[i].ord.cmp(this.addends[i + 1]) == 0) continue;
+					if (this.addends[i].ord.cmp(this.addends[i + 1]) == 0)
+						continue;
 					this.addends.splice(i--, 1);
 					continue;
 				}
 				if (this.addends[i + 1] instanceof Product) {
-					if (this.addends[i].cmp(this.addends[i + 1].ord) == 0) continue;
+					if (this.addends[i].cmp(this.addends[i + 1].ord) == 0)
+						continue;
 					this.addends.splice(i--, 1);
 					continue;
 				}
@@ -320,7 +349,10 @@ class Sum extends VNClass {
 				}
 				// ...and the next one is not but they are like terms then merge
 				if (this.addends[i].ord.cmp(this.addends[i + 1]) == 0) {
-					this.addends[i + 1] = new Product(this.addends[i + 1], this.addends[i].mult + 1);
+					this.addends[i + 1] = new Product(
+						this.addends[i + 1],
+						this.addends[i].mult + 1
+					);
 					this.addends.splice(i--, 1);
 				}
 				continue;
@@ -329,7 +361,10 @@ class Sum extends VNClass {
 			if (this.addends[i + 1] instanceof Product) {
 				// ...if they're like terms then merge
 				if (this.addends[i].cmp(this.addends[i + 1].ord) == 0) {
-					this.addends[i + 1] = new Product(this.addends[i + 1].ord, 1 + this.addends[i + 1].mult);
+					this.addends[i + 1] = new Product(
+						this.addends[i + 1].ord,
+						1 + this.addends[i + 1].mult
+					);
 					this.addends.splice(i--, 1);
 				}
 			}
@@ -378,7 +413,8 @@ class Sum extends VNClass {
 		if (other == 1 || other.value == 1) return this.clone();
 		if (other == 0 || other.value == 0) return new Atom(0);
 		if (typeof other == "number") other = new Atom(other);
-		if (other instanceof Sum) return new Sum(...other.addends.map(e => this.mul(e)));
+		if (other instanceof Sum)
+			return new Sum(...other.addends.map(e => this.mul(e)));
 		if (!(other instanceof Atom)) return this.addends[0].mul(other);
 		let t = this.addends[0];
 		if (typeof t == "number") t = new Atom(t);
@@ -392,12 +428,14 @@ class Sum extends VNClass {
 			for (let i of other.addends) p = p.mul(this.pow(i));
 			return p;
 		}
-		if (other instanceof Product) return this.pow(other.ord).pow(other.mult);
+		if (other instanceof Product)
+			return this.pow(other.ord).pow(other.mult);
 		if (other == 1 || other.value == 1) return this.clone();
 		if (other == 0 || other.value == 0) return new Atom(1);
 		if (typeof other == "number") other = new Atom(other);
 		if (other instanceof Atom) {
-			if (other.value > VNClass.MAX_TERMS - 1) throw "Too many terms, reduce exponent";
+			if (other.value > VNClass.MAX_TERMS - 1)
+				throw "Too many terms, reduce exponent";
 			let t = this.clone();
 			for (let i = 0; i < other.value - 1; i++) t = t.mul(this);
 			return t;
@@ -505,8 +543,10 @@ class Product extends VNClass {
 		if (other == 1 || other.value == 1) return this.clone();
 		if (other == 0 || other.value == 0) return new Atom(0);
 		if (other instanceof Atom) other = other.value;
-		if (other instanceof Sum) return new Sum(...other.addends.map(e => this.mul(e)));
-		if (typeof other == "number") return new Product(this.ord.mul(other), this.mult);
+		if (other instanceof Sum)
+			return new Sum(...other.addends.map(e => this.mul(e)));
+		if (typeof other == "number")
+			return new Product(this.ord.mul(other), this.mult);
 		return this.ord.mul(other);
 	}
 
@@ -517,23 +557,33 @@ class Product extends VNClass {
 			for (let i of other.addends) p = p.mul(this.pow(i));
 			return p;
 		}
-		if (other instanceof Product) return this.pow(other.ord).pow(other.mult);
+		if (other instanceof Product)
+			return this.pow(other.ord).pow(other.mult);
 		if (other == 1 || other.value == 1) return this.clone();
 		if (other == 0 || other.value == 0) return new Atom(1);
 		if (typeof other == "number") other = new Atom(other);
-		if (other instanceof Atom) return new Product(this.ord.pow(other), this.mult);
+		if (other instanceof Atom)
+			return new Product(this.ord.pow(other), this.mult);
 		return this.ord.pow(other);
 	}
 
 	toString() {
-		return Parser.handleParens(this.ord.toString()) + "*" + this.mult.toString();
+		return (
+			Parser.handleParens(this.ord.toString()) +
+			"*" +
+			this.mult.toString()
+		);
 	}
 	toMixed() {
-		return Parser.handleParens(this.ord.toMixed()) + "*" + this.mult.toString();
+		return (
+			Parser.handleParens(this.ord.toMixed()) + "*" + this.mult.toString()
+		);
 	}
 	toHTML() {
 		return (
-			Parser.handleParens(this.ord.toMixed(), false, this.ord.toHTML()) + "*" + this.mult.toString()
+			Parser.handleParens(this.ord.toMixed(), false, this.ord.toHTML()) +
+			"*" +
+			this.mult.toString()
 		);
 	}
 }
@@ -559,7 +609,8 @@ class Phi extends VNClass {
 
 	standardize(ns = false) {
 		// Convert Atoms to numbers
-		for (let i in this.args) if (this.args[i] instanceof Atom) this.args[i] = this.args[i].value;
+		for (let i in this.args)
+			if (this.args[i] instanceof Atom) this.args[i] = this.args[i].value;
 
 		if (!ns) {
 			// Remove redundant 0s
@@ -581,7 +632,10 @@ class Phi extends VNClass {
 			}
 
 			for (let i in this.args)
-				if (this.args[i] instanceof VNClass && !(this.args[i] instanceof Atom))
+				if (
+					this.args[i] instanceof VNClass &&
+					!(this.args[i] instanceof Atom)
+				)
 					this.args[i].standardize();
 		}
 	}
@@ -591,7 +645,8 @@ class Phi extends VNClass {
 		// Standard Phis are always greater than Atoms
 		if (typeof other == "number" || other instanceof Atom) return 1;
 		// Inverted comparisons for Sum and Product
-		if (other instanceof Sum || other instanceof Product) return -other.cmp(this);
+		if (other instanceof Sum || other instanceof Product)
+			return -other.cmp(this);
 		/**
 		 * the basic comparison algorithm alone is just
 		 * φ(X) > φ(Y) iff the sum of args in X is greater than φ(Y)
@@ -602,12 +657,14 @@ class Phi extends VNClass {
 		let sumother = new Sum(...other.args);
 		if (
 			sumthis.cmp(other) == 1 ||
-			((sumother instanceof Atom || sumother.cmp(this) == -1) && this.lexcmp(other) == 1)
+			((sumother instanceof Atom || sumother.cmp(this) == -1) &&
+				this.lexcmp(other) == 1)
 		)
 			return 1;
 		if (
 			sumother.cmp(this) == 1 ||
-			((sumthis instanceof Atom || sumthis.cmp(other) == -1) && other.lexcmp(this) == 1)
+			((sumthis instanceof Atom || sumthis.cmp(other) == -1) &&
+				other.lexcmp(this) == 1)
 		)
 			return -1;
 		return 0;
@@ -623,11 +680,19 @@ class Phi extends VNClass {
 			if (a[i] == "_") break;
 			let cmp;
 			if (this.args[i] instanceof VNClass) {
-				cmp = this.args[i].cmp(a[i] instanceof VNClass ? a[i] : new Atom(a[i]));
+				cmp = this.args[i].cmp(
+					a[i] instanceof VNClass ? a[i] : new Atom(a[i])
+				);
 			} else {
 				if (a[i] instanceof VNClass) {
-					cmp = -a[i].cmp(this.args[i] instanceof VNClass ? this.args[i] : new Atom(this.args[i]));
-				} else cmp = this.args[i] > a[i] ? 1 : this.args[i] < a[i] ? -1 : 0;
+					cmp = -a[i].cmp(
+						this.args[i] instanceof VNClass
+							? this.args[i]
+							: new Atom(this.args[i])
+					);
+				} else
+					cmp =
+						this.args[i] > a[i] ? 1 : this.args[i] < a[i] ? -1 : 0;
 			}
 			if (cmp == -1) return false;
 			if (cmp == 1) return true;
@@ -646,7 +711,11 @@ class Phi extends VNClass {
 			if (typeof this.args[i] == "number") {
 				if (typeof other.args[i] == "number") {
 					if (this.args[i] == other.args[i]) continue;
-					return this.args[i] > other.args[i] ? 1 : this.args[i] < other.args[i] ? -1 : 0;
+					return this.args[i] > other.args[i]
+						? 1
+						: this.args[i] < other.args[i]
+						? -1
+						: 0;
 				}
 				return -1;
 			}
@@ -664,14 +733,18 @@ class Phi extends VNClass {
 		if (other == 1 || other.value == 1) return this.clone();
 		if (other == 0 || other.value == 0) return new Atom(0);
 		if (other instanceof Atom) other = other.value;
-		if (typeof other == "number") return new Product(new Phi(...this.args), other);
-		if (other instanceof Sum) return new Sum(...other.addends.map(e => this.mul(e)));
-		if (other instanceof Product) return new Product(this.mul(other.ord), other.mult);
+		if (typeof other == "number")
+			return new Product(new Phi(...this.args), other);
+		if (other instanceof Sum)
+			return new Sum(...other.addends.map(e => this.mul(e)));
+		if (other instanceof Product)
+			return new Product(this.mul(other.ord), other.mult);
 		let t = this.clone();
 		if (this.args.length > 1) t = Phi.noStandard(this);
 		if (other.args.length > 1) other = Phi.noStandard(other);
 		if (typeof t.args[0] == "number") t.args[0] = new Atom(t.args[0]);
-		if (typeof other.args[0] == "number") other.args[0] = new Atom(other.args[0]);
+		if (typeof other.args[0] == "number")
+			other.args[0] = new Atom(other.args[0]);
 		return new Phi(t.args[0].add(other.args[0]));
 	}
 
@@ -682,7 +755,8 @@ class Phi extends VNClass {
 			for (let i of other.addends) p = p.mul(this.pow(i));
 			return p;
 		}
-		if (other instanceof Product) return this.pow(other.ord).pow(other.mult);
+		if (other instanceof Product)
+			return this.pow(other.ord).pow(other.mult);
 		if (other == 1 || other.value == 1) return this.clone();
 		if (other == 0 || other.value == 0) return new Atom(1);
 		if (other instanceof Atom) other = other.value;
@@ -700,7 +774,8 @@ class Phi extends VNClass {
 
 	toMixed() {
 		let t = this.clone();
-		for (let i in t.args) if (typeof t.args[i] == "number") t.args[i] = new Atom(t.args[i]);
+		for (let i in t.args)
+			if (typeof t.args[i] == "number") t.args[i] = new Atom(t.args[i]);
 		if (t.args.length == 1) {
 			if (t.args[0] == 1) return "w";
 			let s = Parser.handleParens(t.args[0].toMixed());
@@ -727,7 +802,8 @@ class Phi extends VNClass {
 
 	toHTML() {
 		let t = this.clone();
-		for (let i in t.args) if (typeof t.args[i] == "number") t.args[i] = new Atom(t.args[i]);
+		for (let i in t.args)
+			if (typeof t.args[i] == "number") t.args[i] = new Atom(t.args[i]);
 		if (t.args.length == 1) {
 			if (t.args[0] == 1) return "&omega;";
 			let s = t.args[0].toHTML();
@@ -781,7 +857,7 @@ class Parser {
 	}
 
 	static tokenize(str) {
-		str.replace(/([-/])/, function (match, c1) {
+		str.replace(/([-/])/, function (_match, c1) {
 			throw 'Unknown char: "' + c1 + '"';
 		});
 		let tokens = [];
@@ -789,21 +865,35 @@ class Parser {
 		let idbuff = [];
 		for (let i = 0; i < str.length; i++) {
 			let char = str[i];
-			let type = Parser.isNumber(char) ? 0 : Parser.isOperator(char) ? 2 : 1;
+			let type = Parser.isNumber(char)
+				? 0
+				: Parser.isOperator(char)
+				? 2
+				: 1;
 			if (numbuff.length > 0 && type !== 0) {
-				tokens.push(new Parser.Token(Parser.TYPES.LITERAL, numbuff.join("")));
+				tokens.push(
+					new Parser.Token(Parser.TYPES.LITERAL, numbuff.join(""))
+				);
 				numbuff = [];
 			}
 			if (idbuff.length > 0 && type !== 1) {
-				tokens.push(new Parser.Token(Parser.TYPES.IDENTIFIER, idbuff.join("")));
+				tokens.push(
+					new Parser.Token(Parser.TYPES.IDENTIFIER, idbuff.join(""))
+				);
 				idbuff = [];
 			}
 			if (type == 0) numbuff.push(char);
 			else if (type == 1) idbuff.push(char);
 			else tokens.push(new Parser.Token(Parser.TYPES.OPERATOR, char));
 		}
-		if (numbuff.length > 0) tokens.push(new Parser.Token(Parser.TYPES.LITERAL, numbuff.join("")));
-		if (idbuff.length > 0) tokens.push(new Parser.Token(Parser.TYPES.IDENTIFIER, idbuff.join("")));
+		if (numbuff.length > 0)
+			tokens.push(
+				new Parser.Token(Parser.TYPES.LITERAL, numbuff.join(""))
+			);
+		if (idbuff.length > 0)
+			tokens.push(
+				new Parser.Token(Parser.TYPES.IDENTIFIER, idbuff.join(""))
+			);
 		return tokens;
 	}
 
@@ -843,7 +933,8 @@ class Parser {
 			} else if (token.value == ",") {
 				let mismatched = true;
 				while (stack.length > 0) {
-					if (stack[stack.length - 1].value !== "(") output.push(stack.pop());
+					if (stack[stack.length - 1].value !== "(")
+						output.push(stack.pop());
 					else {
 						mismatched = false;
 						break;
@@ -858,7 +949,8 @@ class Parser {
 			else if (token.value == ")") {
 				let mismatched = true;
 				while (stack.length > 0) {
-					if (stack[stack.length - 1].value !== "(") output.push(stack.pop());
+					if (stack[stack.length - 1].value !== "(")
+						output.push(stack.pop());
 					else {
 						mismatched = false;
 						break;
@@ -866,7 +958,10 @@ class Parser {
 				}
 				if (mismatched) throw "Mismatched parens";
 				stack.pop();
-				if (stack.length > 0 && stack[stack.length - 1].type == Parser.TYPES.IDENTIFIER) {
+				if (
+					stack.length > 0 &&
+					stack[stack.length - 1].type == Parser.TYPES.IDENTIFIER
+				) {
 					let f = stack.pop();
 					let a = arg_count.pop();
 					if (were_values.pop()) a++;
@@ -878,9 +973,11 @@ class Parser {
 					stack.length > 0 &&
 					stack[stack.length - 1].type == Parser.TYPES.OPERATOR &&
 					((Parser.ASSOC[token.value] == "left" &&
-						Parser.PREC[token.value] <= Parser.PREC[stack[stack.length - 1].value]) ||
+						Parser.PREC[token.value] <=
+							Parser.PREC[stack[stack.length - 1].value]) ||
 						(Parser.ASSOC[token.value] == "right" &&
-							Parser.PREC[token.value] < Parser.PREC[stack[stack.length - 1].value]))
+							Parser.PREC[token.value] <
+								Parser.PREC[stack[stack.length - 1].value]))
 				)
 					output.push(stack.pop());
 				stack.push(token);
@@ -895,14 +992,17 @@ class Parser {
 	}
 
 	static fixUnary(str) {
-		while (/(e|z|n|G)((\w+\(.+\))|[^\+\*\^\(][^\+\*\^]*[^\+\*\^\)]?)/g.test(str))
-			str = str.replace(/(e|z|n|G)((\w+\(.+\))|[^\+\*\^\(][^\+\*\^]*[^\+\*\^\)]?)/g, function (
-				match,
-				c1,
-				c2
-			) {
-				return `${c1}(${c2})`;
-			});
+		while (
+			/(e|z|n|G)((\w+\([^,]+\))|[^\+\*\^\(\,][^\+\*\^\,]*[^\+\*\^\)\,]?)/g.test(
+				str
+			)
+		)
+			str = str.replace(
+				/(e|z|n|G)((\w+\([^,]+\))|[^\+\*\^\(\,][^\+\*\^\,]*[^\+\*\^\)\,]?)/g,
+				function (_match, c1, c2) {
+					return `${c1}(${c2})`;
+				}
+			);
 		return str;
 	}
 
@@ -933,14 +1033,16 @@ class Parser {
 				else if (token.value == "z") args.push(new Phi(2, a[0]));
 				else if (token.value == "n") args.push(new Phi(3, a[0]));
 				else if (token.value == "G") args.push(new Phi(1, 0, a[0]));
-				else if (token.value == "phi" || token.value == "p") args.push(new Phi(...a.reverse()));
+				else if (token.value == "phi" || token.value == "p")
+					args.push(new Phi(...a.reverse()));
 			}
 		}
 		return args[0];
 	}
 
 	static handleParens(str, sub = false, replace = false) {
-		if (Parser.needsParens(str, sub)) return `(${replace !== false ? replace : str})`;
+		if (Parser.needsParens(str, sub))
+			return `(${replace !== false ? replace : str})`;
 		return replace !== false ? replace : str;
 	}
 
@@ -948,7 +1050,8 @@ class Parser {
 		let t = Parser.parse(Parser.tokenize(Parser.fixUnary(str)))
 			.map(e => e.value)
 			.join("");
-		if (t.endsWith("+") || t.endsWith("*") || (sub && t.endsWith("^"))) return true;
+		if (t.endsWith("+") || t.endsWith("*") || (sub && t.endsWith("^")))
+			return true;
 		return false;
 	}
 }
